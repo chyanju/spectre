@@ -2,7 +2,8 @@
 module Main where
 
 import System.Exit (exitWith, ExitCode(..))
-import System.IO (hPutStrLn, stderr)
+import System.IO (hPutStrLn, stderr, stdout, hIsTerminalDevice)
+import System.Environment (lookupEnv)
 import System.Directory (doesFileExist)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -153,7 +154,8 @@ runAnalyze AnalyzeOpts{..} = do
 
   let result = (analyze config parsed)
         { arParseErrors = errors }
-  TIO.putStr $ renderFindings analyzeFormat result
+  useColor <- shouldUseColor
+  TIO.putStr $ renderFindings useColor analyzeFormat result
   let errorCount = length $ filter (\f -> findingSeverity f == Error) (arFindings result)
   if errorCount > 0
     then exitWith (ExitFailure 1)
@@ -257,6 +259,13 @@ printCaseResult CaseResult{..} = do
 
 showPct :: Double -> String
 showPct d = show (round (d * 100) :: Int) ++ "%"
+
+-- | Detect whether to use ANSI colors: must be a TTY and NO_COLOR not set
+shouldUseColor :: IO Bool
+shouldUseColor = do
+  isTty <- hIsTerminalDevice stdout
+  noColor <- lookupEnv "NO_COLOR"
+  return $ isTty && noColor == Nothing
 
 -- | Convert a CaseResult to JSON
 caseToJSON :: CaseResult -> Value

@@ -18,23 +18,66 @@ import Spectre.Inspection
 import Spectre.Analysis (AnalysisResult(..))
 import Spectre.Config (OutputFormat(..))
 
--- | Render findings based on output format
-renderFindings :: OutputFormat -> AnalysisResult -> Text
-renderFindings HumanReadable = renderHuman
-renderFindings JsonOutput = renderJson
+-- ────────────────────────────────────────────────
+-- ANSI color helpers
+-- ────────────────────────────────────────────────
+
+type ColorFn = Text -> Text
+
+data Theme = Theme
+  { cBold    :: !ColorFn
+  , cRed     :: !ColorFn
+  , cYellow  :: !ColorFn
+  , cCyan    :: !ColorFn
+  , cGreen   :: !ColorFn
+  , cBlue    :: !ColorFn
+  , cDim     :: !ColorFn
+  , cReset   :: !Text
+  }
+
+colorTheme :: Theme
+colorTheme = Theme
+  { cBold   = ansi "1"
+  , cRed    = ansi "1;31"
+  , cYellow = ansi "33"
+  , cCyan   = ansi "36"
+  , cGreen  = ansi "32"
+  , cBlue   = ansi "34"
+  , cDim    = ansi "2"
+  , cReset  = "\x1b[0m"
+  }
+
+noColorTheme :: Theme
+noColorTheme = Theme
+  { cBold = id, cRed = id, cYellow = id, cCyan = id
+  , cGreen = id, cBlue = id, cDim = id, cReset = ""
+  }
+
+ansi :: Text -> Text -> Text
+ansi code t = "\x1b[" <> code <> "m" <> t <> "\x1b[0m"
+
+-- ────────────────────────────────────────────────
+-- Public API
+-- ────────────────────────────────────────────────
+
+-- | Render findings based on output format.
+--   The Bool controls ANSI color (True = color, False = plain).
+renderFindings :: Bool -> OutputFormat -> AnalysisResult -> Text
+renderFindings _     JsonOutput     = renderJson
+renderFindings color HumanReadable  = renderHuman (if color then colorTheme else noColorTheme)
 
 -- | Render results as human-readable text
-renderHuman :: AnalysisResult -> Text
-renderHuman AnalysisResult{..} =
-  let header = "Spectre DAML Security Analysis\n"
-            <> "==============================\n"
-            <> "Files analyzed: " <> T.pack (show arFileCount) <> "\n"
-            <> "Rules applied: " <> T.pack (show arRulesRun) <> "\n"
-            <> "Findings: " <> T.pack (show (length arFindings)) <> "\n"
+renderHuman :: Theme -> AnalysisResult -> Text
+renderHuman th AnalysisResult{..} =
+  let header = cBold th ("Spectre DAML Security Analysis\n")
+            <> cDim th "==============================" <> "\n"
+            <> "Files analyzed: " <> cBold th (T.pack (show arFileCount)) <> "\n"
+            <> "Rules applied:  " <> cBold th (T.pack (show arRulesRun)) <> "\n"
+            <> "Findings:       " <> cBold th (T.pack (show (length arFindings))) <> "\n"
             <> "\n"
-      errors = renderParseErrors arParseErrors
-      findings = T.intercalate "\n" (map renderFinding arFindings)
-      summary = renderSummary arFindings
+      errors = renderParseErrors th arParseErrors
+      findings = T.intercalate "\n" (map (renderFinding th) arFindings)
+      summary = renderSummary th arFindings
   in header <> errors <> findings <> "\n" <> summary
 
 -- | Render results as JSON
@@ -57,40 +100,47 @@ renderJson AnalysisResult{..} =
         ]
   in TE.decodeUtf8 $ BL.toStrict $ encodePretty jsonVal
 
-renderParseErrors :: [(FilePath, Text)] -> Text
-renderParseErrors [] = ""
-renderParseErrors errs =
-  "Parse Errors:\n" <>
+renderParseErrors :: Theme -> [(FilePath, Text)] -> Text
+renderParseErrors _ [] = ""
+renderParseErrors th errs =
+  cRed th "Parse Errors:" <> "\n" <>
   T.intercalate "\n" (map (\(f, e) -> "  " <> T.pack f <> ": " <> e) errs) <>
   "\n\n"
 
-renderFinding :: Finding -> Text
-renderFinding Finding{..} =
+renderFinding :: Theme -> Finding -> Text
+renderFinding th Finding{..} =
   let sevIcon = case findingSeverity of
-        Error -> "[ERROR]  "
-        Warning -> "[WARN]   "
-        Info -> "[INFO]   "
+        Error   -> cRed th    "[ERROR]  "
+        Warning -> cYellow th "[WARN]   "
+        Info    -> cCyan th   "[INFO]   "
       loc = case findingLocation of
-        SrcSpan f l c _ _ -> T.pack f <> ":" <> T.pack (show l) <> ":" <> T.pack (show c)
-      rule = unInspectionId findingInspection
+        SrcSpan f l c _ _ -> cDim th (T.pack f <> ":" <> T.pack (show l) <> ":" <> T.pack (show c))
+      rule = cBlue th (unInspectionId findingInspection)
       context = case (findingTemplate, findingChoice) of
-        (Just tpl, Just ch) -> " in " <> tpl <> "." <> ch
-        (Just tpl, Nothing) -> " in " <> tpl
+        (Just tpl, Just ch) -> " in " <> cBold th (tpl <> "." <> ch)
+        (Just tpl, Nothing) -> " in " <> cBold th tpl
         _                   -> ""
       suggestion = case findingSuggestion of
-        Just s -> "\n           Suggestion: " <> s
+        Just s  -> "\n           " <> cGreen th "Suggestion: " <> s
         Nothing -> ""
   in sevIcon <> rule <> " " <> loc <> context <> "\n"
   <> "           " <> findingMessage
   <> suggestion <> "\n"
 
-renderSummary :: [Finding] -> Text
-renderSummary findings =
+renderSummary :: Theme -> [Finding] -> Text
+renderSummary th findings =
   let errors = length $ filter (\f -> findingSeverity f == Error) findings
       warnings = length $ filter (\f -> findingSeverity f == Warning) findings
       infos = length $ filter (\f -> findingSeverity f == Info) findings
-  in "\n---\n"
+  in "\n" <> cDim th "---" <> "\n"
   <> "Summary: "
-  <> T.pack (show errors) <> " errors, "
-  <> T.pack (show warnings) <> " warnings, "
-  <> T.pack (show infos) <> " info\n"
+  <> colorCount th Error errors <> " errors, "
+  <> colorCount th Warning warnings <> " warnings, "
+  <> colorCount th Info infos <> " info\n"
+
+-- | Colorize a count based on severity (only when nonzero)
+colorCount :: Theme -> Severity -> Int -> Text
+colorCount _  _       0 = "0"
+colorCount th Error   n = cRed th (T.pack (show n))
+colorCount th Warning n = cYellow th (T.pack (show n))
+colorCount th Info    n = cCyan th (T.pack (show n))
