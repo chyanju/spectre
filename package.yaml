@@ -1,5 +1,5 @@
 name:                spectre
-version:             0.1.4.0
+version:             0.1.5.0
 synopsis:            Static analysis tool for DAML smart contracts
 description:         Spectre detects security bugs in DAML smart contracts using pattern-based static analysis
 license:             MIT
@@ -57,6 +57,7 @@ library:
     - Spectre.Rules.CrossTemplate
     - Spectre.Rules.Upgrade
     - Spectre.Rules.Integration
+    - Spectre.Rules.Utils
     - Spectre.Report
     - Spectre.Config
     - Spectre.Benchmark

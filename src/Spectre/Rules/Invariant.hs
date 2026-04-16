@@ -113,7 +113,7 @@ floatingPointEquality = mkInspection
 -- Helpers
 
 partialFunctions :: [Text]
-partialFunctions = ["head", "tail", "!!", "fromSome", "fromJust"]
+partialFunctions = ["head", "tail", "!!", "fromSome", "fromJust", "init", "last"]
 
 -- | Check if a parameter name is used in any create statement
 paramUsedInCreate :: Text -> [Stmt] -> Bool
@@ -591,7 +591,7 @@ isNumericParam name ch =
   where
     nameHintIsNumeric n =
       let lower = T.toLower n
-      in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit"]
+      in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit", "value", "balance", "total", "margin", "delta"]
 
 paramHasLowerBound :: Text -> [Stmt] -> Bool
 paramHasLowerBound name = any check
@@ -643,7 +643,7 @@ findFieldsWithOnlyLowerBoundInEnsure fieldNames ensureExpr =
 isNumericFieldName :: Text -> Bool
 isNumericFieldName name =
   let lower = T.toLower name
-  in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit"]
+  in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit", "value", "balance", "total", "margin", "delta"]
 
 -- | SPEC-INV-009: Asymmetric validation between sibling functions
 --

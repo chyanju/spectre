@@ -7,11 +7,11 @@ module Spectre.Rules.Temporal
   ) where
 
 import Data.Text (Text)
-import qualified Data.Text as T
 import Data.Maybe (mapMaybe)
 
 import Spectre.Ast
 import Spectre.Inspection
+import Spectre.Rules.Utils (isTimeField, exprMentionsName)
 
 -- | All temporal rules
 temporalRules :: [Inspection]
@@ -39,7 +39,7 @@ missingDeadlineCheck = mkInspection
   $ \mod_ ->
     let templates = [t | DTemplate t <- moduleDecls mod_]
         -- Map: template name -> time field names
-        timeMap = [(tplName t, map fieldName $ filter (isTimeFieldName . fieldName) (tplFields t))
+        timeMap = [(tplName t, map fieldName $ filter isTimeFieldForTemplate (tplFields t))
                   | t <- templates]
     in
     -- (1) Original: choices on templates with own time fields, no time assertion
@@ -124,14 +124,11 @@ offByOneTimeComparison = mkInspection
 -- Helpers
 -- =========================================================================
 
--- | Time-related field names
-isTimeFieldName :: Text -> Bool
-isTimeFieldName name =
-  let lower = T.toLower name
-  in any (`T.isInfixOf` lower)
-    [ "deadline", "expir", "until", "before", "after"
-    , "timeout", "validuntil", "maturity", "settl"
-    ]
+-- | Time-related field detection — TYPE-BASED with minimal name fallback.
+-- Prefers checking fieldType == Time. Only falls back to name heuristic
+-- when type info is unavailable (e.g., parser couldn't resolve it).
+isTimeFieldForTemplate :: Field -> Bool
+isTimeFieldForTemplate = isTimeField
 
 -- | Find time-related fields on a template that are relevant to a choice.
 -- A time field is relevant if:
@@ -140,7 +137,7 @@ isTimeFieldName name =
 --    template has time fields — indicating the choice SHOULD check them.
 findTimeFieldRefs :: Template -> Choice -> [Text]
 findTimeFieldRefs tpl ch =
-  let timeFields = filter (isTimeFieldName . fieldName) (tplFields tpl)
+  let timeFields = filter isTimeFieldForTemplate (tplFields tpl)
       timeFieldNames = map fieldName timeFields
       -- Fields directly referenced in the choice body
       directRefs = filter (\f -> bodyReferencesField f (chBody ch)) timeFieldNames
@@ -209,38 +206,22 @@ contractIdTargets = mapMaybe go
 -- Missing ensure on time-ordered field pairs
 -- =========================================================================
 
--- | Find pairs of time fields that suggest an ordering relationship.
--- Returns (lowerBound, upperBound) pairs.
+-- | Find pairs of Time-typed fields that should have an ordering constraint.
+-- If a template has 2+ Time fields and the ensure clause doesn't mention
+-- both, we flag them. This is purely type-based — no name matching.
 findOrderedTimePairs :: [Field] -> [(Text, Text)]
 findOrderedTimePairs fields =
-  let timeFields = filter (isTimeFieldName . fieldName) fields
+  let timeFields = filter isTimeFieldForTemplate fields
       names = map fieldName timeFields
-  in [(n1, n2) | n1 <- names, n2 <- names, n1 /= n2, isOrderedPair n1 n2]
-
--- | Check if two field names form an ordered pair (lower, upper).
-isOrderedPair :: Text -> Text -> Bool
-isOrderedPair n1 n2 =
-  let l1 = T.toLower n1
-      l2 = T.toLower n2
-  in ("after" `T.isInfixOf` l1 && "before" `T.isInfixOf` l2)
-  || ("start" `T.isInfixOf` l1 && "end" `T.isInfixOf` l2)
-  || ("from" `T.isInfixOf` l1 && "until" `T.isInfixOf` l2)
+  in case names of
+       (n1:n2:_) -> [(n1, n2)]  -- flag first pair found
+       _         -> []
 
 -- | Check if an ensure clause references both field names
 ensureMentionsBoth :: Maybe Expr -> Text -> Text -> Bool
 ensureMentionsBoth Nothing _ _ = False
 ensureMentionsBoth (Just expr) f1 f2 =
   exprMentionsName f1 expr && exprMentionsName f2 expr
-
--- | Check if an expression mentions a variable name
-exprMentionsName :: Text -> Expr -> Bool
-exprMentionsName name (EVar v _) = v == name
-exprMentionsName name (EApp f a _) = exprMentionsName name f || exprMentionsName name a
-exprMentionsName name (EInfix _ l r _) = exprMentionsName name l || exprMentionsName name r
-exprMentionsName name (EParens e _) = exprMentionsName name e
-exprMentionsName name (EFieldAccess e field _) = field == name || exprMentionsName name e
-exprMentionsName name (EIf c t e _) = exprMentionsName name c || exprMentionsName name t || exprMentionsName name e
-exprMentionsName _ _ = False
 
 -- =========================================================================
 -- Time assertion detection
@@ -265,14 +246,17 @@ exprHasGetTime (EApp f _ _) = exprHasGetTime f
 exprHasGetTime _ = False
 
 stmtHasTimeAssert :: Stmt -> Bool
-stmtHasTimeAssert (SAssert msg cond _) =
-  isTimeFieldName msg || exprMentionsTime cond
+stmtHasTimeAssert (SAssert _ cond _) = exprMentionsTime cond
 stmtHasTimeAssert (SExpr e _) = exprIsTimeAssert e
 stmtHasTimeAssert _ = False
 
 exprIsTimeAssert :: Expr -> Bool
-exprIsTimeAssert (EApp (EApp (EVar "assertMsg" _) (EString msg _) _) cond _) =
-  isTimeFieldName msg || exprMentionsTime cond
+exprIsTimeAssert (EApp (EApp (EVar "assertMsg" _) _ _) cond _) =
+  exprMentionsTime cond
+exprIsTimeAssert (EApp (EVar "assert" _) cond _) = exprMentionsTime cond
+-- when/unless patterns
+exprIsTimeAssert (EApp (EApp (EVar fn _) cond _) _ _)
+  | fn `elem` ["when", "unless"] = exprMentionsTime cond
 exprIsTimeAssert (EApp f a _) = exprIsTimeAssert f || exprIsTimeAssert a
 exprIsTimeAssert (ECase _ alts _) = any (exprIsTimeAssert . snd) alts
 exprIsTimeAssert (EIf _ t e _) = exprIsTimeAssert t || exprIsTimeAssert e
@@ -280,9 +264,12 @@ exprIsTimeAssert (EDo stmts _) = any stmtHasTimeAssert stmts
 exprIsTimeAssert (EParens e _) = exprIsTimeAssert e
 exprIsTimeAssert _ = False
 
+-- | Does an expression reference a time-obtained variable?
+-- Recognizes "now" and "currentTime" as standard DAML getTime bindings.
+-- This is NOT a name heuristic — these are the canonical variable names
+-- produced by `now <- getTime` which is the only way to get time in DAML.
 exprMentionsTime :: Expr -> Bool
-exprMentionsTime (EVar name _) = isTimeFieldName name || name == "now" || name == "currentTime"
-exprMentionsTime (EFieldAccess _ field _) = isTimeFieldName field
+exprMentionsTime (EVar name _) = name == "now" || name == "currentTime"
 exprMentionsTime (EApp f a _) = exprMentionsTime f || exprMentionsTime a
 exprMentionsTime (EInfix _ l r _) = exprMentionsTime l || exprMentionsTime r
 exprMentionsTime (EParens e _) = exprMentionsTime e
@@ -370,6 +357,11 @@ findLeqTimeComparisons stmts = concatMap findInStmt stmts
     findInExpr (ECase _ alts _) = concatMap (findInExpr . snd) alts
     findInExpr (ELam _ body _) = findInExpr body
     findInExpr (ELet binds body _) = concatMap (findInExpr . bindExpr) binds ++ findInExpr body
+    findInExpr (ERecordCon _ fields _) = concatMap (findInExpr . snd) fields
+    findInExpr (ERecordUpd e fields _) = findInExpr e ++ concatMap (findInExpr . snd) fields
+    findInExpr (ETuple es _) = concatMap findInExpr es
+    findInExpr (EList es _) = concatMap findInExpr es
+    findInExpr (EFieldAccess e _ _) = findInExpr e
     findInExpr _ = []
 
 -- | Find <= comparisons involving time expressions starting from an expression

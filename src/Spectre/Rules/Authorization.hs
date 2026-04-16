@@ -11,6 +11,7 @@ import qualified Data.Text as T
 
 import Spectre.Ast
 import Spectre.Inspection
+import Spectre.Rules.Utils (isPartySetField, isCollectionMemberCall, anyStmt, stmtAssertsCond, anyExpr)
 
 -- | All authorization rules
 authRules :: [Inspection]
@@ -22,26 +23,29 @@ authRules =
 -- | SPEC-AUTH-001: Signatory allows unilateral archive
 --
 -- Detects templates where an actor/user party is the sole signatory,
--- allowing them to unilaterally archive (delete) audit/event records.
--- The fix is typically to make a governance party the signatory.
+-- and the template is not consumable by any other party. This allows
+-- the sole signatory to unilaterally archive (delete) records.
+-- If the template is meant to be a shared fact or audit log, this is a flaw.
+-- (This generalized version checks if the template lacks choices that might
+-- represent multi-party workflows, and only has a single signatory).
 signatoryAllowsUnilateralArchive :: Inspection
 signatoryAllowsUnilateralArchive = mkInspection
   "SPEC-AUTH-001"
   "Signatory allows unilateral archive"
-  "Template signatory model allows a single actor to unilaterally archive records. Consider requiring a governance party as signatory to protect audit trails."
+  "Template signatory model has only one signatory and lacks complex multi-party choices, allowing the sole signatory to unilaterally archive records. Consider requiring a governance party as signatory to protect shared facts."
   Warning
   [Authorization]
   $ \mod_ ->
     [ mkFinding (InspectionId "SPEC-AUTH-001") Warning (tplLocation tpl)
-        ("Template '" <> tplName tpl <> "' has a single actor-like signatory '"
-         <> showPartyExpr p <> "' who can unilaterally archive records")
+        ("Template '" <> tplName tpl <> "' has a single signatory '"
+         <> showPartyExpr p <> "' and no multi-party choices, allowing them to unilaterally archive")
         (Just "Add a governance/admin party as signatory to protect record integrity")
         (Just (tplName tpl))
         Nothing
     | DTemplate tpl <- moduleDecls mod_
-    , isEventOrAuditTemplate tpl
     , [p] <- [tplSignatory tpl]  -- exactly one signatory
-    , isActorLike p
+    , not (hasMultiPartyChoices tpl)
+    , not (isObserverHeavy tpl)
     ]
 
 -- | SPEC-AUTH-002: Missing role membership check in choice body
@@ -64,7 +68,7 @@ missingRoleMembershipCheck = mkInspection
         (Just (tplName tpl))
         (Just (chName ch))
     | DTemplate tpl <- moduleDecls mod_
-    , hasRolesField tpl
+    , hasPartyCollectionField tpl
     , ch <- tplChoices tpl
     , controllerIsParam ch tpl
     , not (bodyHasRoleCheck (chBody ch))
@@ -72,15 +76,13 @@ missingRoleMembershipCheck = mkInspection
 
 -- Helpers
 
-isEventOrAuditTemplate :: Template -> Bool
-isEventOrAuditTemplate tpl =
-  let name = T.toLower (tplName tpl)
-  in any (`T.isInfixOf` name) ["event", "audit", "log", "record", "history"]
+hasMultiPartyChoices :: Template -> Bool
+hasMultiPartyChoices tpl =
+  let choices = tplChoices tpl
+  in length choices > 1 || any (\ch -> length (chController ch) > 1) choices
 
-isActorLike :: PartyExpr -> Bool
-isActorLike (PEVar name _) = any (`T.isInfixOf` T.toLower name) ["actor", "caller", "sender", "user", "operator"]
-isActorLike (PEField _ field _) = any (`T.isInfixOf` T.toLower field) ["actor", "caller", "sender", "user", "operator"]
-isActorLike _ = False
+isObserverHeavy :: Template -> Bool
+isObserverHeavy tpl = length (tplObserver tpl) > 1
 
 showPartyExpr :: PartyExpr -> Text
 showPartyExpr (PEVar name _) = name
@@ -89,9 +91,11 @@ showPartyExpr (PEList ps _) = "[" <> T.intercalate ", " (map showPartyExpr ps) <
 showPartyExpr (PEApp name _ _) = name <> "(...)"
 showPartyExpr (PEExpr _ _) = "<expr>"
 
-hasRolesField :: Template -> Bool
-hasRolesField tpl =
-  any (\f -> "role" `T.isInfixOf` T.toLower (fieldName f)) (tplFields tpl)
+-- | Check if template has a field of type Set Party or [Party].
+-- This is STRUCTURAL (type-based), not name-based.
+hasPartyCollectionField :: Template -> Bool
+hasPartyCollectionField tpl =
+  any isPartySetField (tplFields tpl)
 
 controllerIsParam :: Choice -> Template -> Bool
 controllerIsParam ch tpl =
@@ -103,24 +107,20 @@ controllerIsParam ch tpl =
       && not (any (\f -> fieldName f == name) (tplFields tpl))
     isChoiceParam _ = False
 
+-- | Check if the choice body has any membership/lookup assertion.
+-- Uses the universal assertion detector + collection membership call detection.
+-- Does NOT hardcode "role" or "member" — instead checks for Set.member,
+-- Map.member, elem, etc. via structural matching.
 bodyHasRoleCheck :: [Stmt] -> Bool
-bodyHasRoleCheck stmts = any isRoleCheck stmts
+bodyHasRoleCheck stmts =
+  -- Check if any assertion condition calls a membership function
+  any (stmtAssertsCond hasCollectionMembershipCall) stmts
+  -- Also check for any membership call in the body at all (even outside assert)
+  || anyStmt hasCollectionMembershipCall stmts
+
+hasCollectionMembershipCall :: Expr -> Bool
+hasCollectionMembershipCall = anyExpr isMemberCall
   where
-    isRoleCheck (SAssert _ expr _) = exprMentions "member" expr || exprMentions "role" expr
-    isRoleCheck (SExpr expr _) = isAssertWithRole expr
-    isRoleCheck _ = False
-
-    isAssertWithRole (EApp (EApp (EVar "assertMsg" _) _ _) cond _) =
-      exprMentions "member" cond || exprMentions "role" cond
-    isAssertWithRole _ = False
-
--- | Check if an expression mentions a given name anywhere
-exprMentions :: Text -> Expr -> Bool
-exprMentions name expr = case expr of
-  EVar v _ -> T.isInfixOf (T.toLower name) (T.toLower v)
-  EApp f a _ -> exprMentions name f || exprMentions name a
-  EInfix _ l r _ -> exprMentions name l || exprMentions name r
-  EFieldAccess e field _ -> T.isInfixOf (T.toLower name) (T.toLower field) || exprMentions name e
-  EParens e _ -> exprMentions name e
-  EIf c t e _ -> exprMentions name c || exprMentions name t || exprMentions name e
-  _ -> False
+    isMemberCall (EVar v _) = isCollectionMemberCall v
+    isMemberCall (EApp (EVar v _) _ _) = isCollectionMemberCall v
+    isMemberCall _ = False

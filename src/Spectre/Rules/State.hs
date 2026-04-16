@@ -6,10 +6,9 @@ module Spectre.Rules.State
   ( stateRules
   ) where
 
-import Data.Text (Text)
-
 import Spectre.Ast
 import Spectre.Inspection
+import Spectre.Rules.Utils (isCollectionInsertCall, isCollectionDeleteCall, isCollectionMemberCall, anyStmt)
 
 -- | All state integrity rules
 stateRules :: [Inspection]
@@ -69,32 +68,22 @@ asymmetricAddRemove = mkInspection
 -- Helpers
 
 bodyHasSetInsert :: [Stmt] -> Bool
-bodyHasSetInsert = any stmtHasSetInsert
-  where
-    stmtHasSetInsert (SExpr e _) = exprHasCall "Set.insert" e || exprHasCall "Map.insert" e
-    stmtHasSetInsert (SBind _ e _) = exprHasCall "Set.insert" e || exprHasCall "Map.insert" e
-    stmtHasSetInsert (SLet binds _) = any ((\e -> exprHasCall "Set.insert" e || exprHasCall "Map.insert" e) . bindExpr) binds
-    stmtHasSetInsert (SCreate _ e _) = exprHasCall "Set.insert" e || exprHasCall "Map.insert" e
-    stmtHasSetInsert _ = False
+bodyHasSetInsert = anyStmt isInsertCallExpr
 
 bodyHasSetMemberCheck :: [Stmt] -> Bool
-bodyHasSetMemberCheck = any check
-  where
-    check (SAssert _ e _) = exprHasCall "Set.member" e || exprHasCall "Map.member" e
-    check (SExpr e _) = exprHasCall "Set.member" e || exprHasCall "Map.member" e
-    check _ = False
+bodyHasSetMemberCheck = anyStmt isMemberCallExpr
 
-exprHasCall :: Text -> Expr -> Bool
-exprHasCall name (EVar v _) = v == name
-exprHasCall name (EApp f a _) = exprHasCall name f || exprHasCall name a
-exprHasCall name (EInfix _ l r _) = exprHasCall name l || exprHasCall name r
-exprHasCall name (EParens e _) = exprHasCall name e
-exprHasCall name (EFieldAccess e _ _) = exprHasCall name e
-exprHasCall name (ERecordCon _ fields _) = any (exprHasCall name . snd) fields
-exprHasCall name (ERecordUpd e fields _) = exprHasCall name e || any (exprHasCall name . snd) fields
-exprHasCall name (EIf c t e _) = exprHasCall name c || exprHasCall name t || exprHasCall name e
-exprHasCall name (ELet binds body _) = any (exprHasCall name . bindExpr) binds || exprHasCall name body
-exprHasCall _ _ = False
+-- | Structural detection of insert calls (handles any qualified name)
+isInsertCallExpr :: Expr -> Bool
+isInsertCallExpr (EVar v _) = isCollectionInsertCall v
+isInsertCallExpr (EApp (EVar v _) _ _) = isCollectionInsertCall v
+isInsertCallExpr _ = False
+
+-- | Structural detection of member/lookup calls
+isMemberCallExpr :: Expr -> Bool
+isMemberCallExpr (EVar v _) = isCollectionMemberCall v
+isMemberCallExpr (EApp (EVar v _) _ _) = isCollectionMemberCall v
+isMemberCallExpr _ = False
 
 hasInsertChoices :: Template -> Bool
 hasInsertChoices tpl = any (bodyHasSetInsert . chBody) (tplChoices tpl)
@@ -102,8 +91,9 @@ hasInsertChoices tpl = any (bodyHasSetInsert . chBody) (tplChoices tpl)
 hasDeleteChoices :: Template -> Bool
 hasDeleteChoices tpl = any hasDelete (tplChoices tpl)
   where
-    hasDelete ch = any stmtHasDelete (chBody ch)
-    stmtHasDelete (SExpr e _) = exprHasCall "Set.delete" e || exprHasCall "Map.delete" e
-    stmtHasDelete (SBind _ e _) = exprHasCall "Set.delete" e || exprHasCall "Map.delete" e
-    stmtHasDelete (SCreate _ e _) = exprHasCall "Set.delete" e || exprHasCall "Map.delete" e
-    stmtHasDelete _ = False
+    hasDelete ch = anyStmt isDeleteCallExpr (chBody ch)
+
+isDeleteCallExpr :: Expr -> Bool
+isDeleteCallExpr (EVar v _) = isCollectionDeleteCall v
+isDeleteCallExpr (EApp (EVar v _) _ _) = isCollectionDeleteCall v
+isDeleteCallExpr _ = False

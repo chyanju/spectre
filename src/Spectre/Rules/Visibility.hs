@@ -7,7 +7,6 @@ module Spectre.Rules.Visibility
   ) where
 
 import Data.Text (Text)
-import qualified Data.Text as T
 
 import Spectre.Ast
 import Spectre.Inspection
@@ -77,69 +76,46 @@ isThisOrSelf _ = False
 -- SPEC-VIS-002: Missing symmetric observer
 -- =========================================================================
 
--- | SPEC-VIS-002: Missing symmetric party in observer clause
+-- | SPEC-VIS-002: Choice controller not an observer (Asymmetric role)
 --
--- Detects templates where the combined signatory+observer clauses reference
--- one side of a known paired-role pattern (e.g., ".sender" without
--- ".receiver", or ".lender" without ".borrower") but not the other.
--- In DAML, both counterparties typically need contract visibility to
--- participate in the workflow.
+-- Detects templates where a party is given control over a choice
+-- (via controller) but is not explicitly made an observer or signatory.
+-- While DAML semantics may sometimes implicitly allow this if the party
+-- is a stakeholder on another contract being used, it often points to a
+-- visibility gap where a counterparty cannot see the contract they are
+-- supposed to interact with.
 missingSymmetricObserver :: Inspection
 missingSymmetricObserver = mkInspection
   "SPEC-VIS-002"
-  "Missing symmetric party in observer clause"
-  "Template observers/signatories reference one side of a party pair (e.g., sender) but not the counterpart (e.g., receiver), creating a visibility gap."
+  "Choice controller is not a stakeholder (Asymmetric Role)"
+  "A party is defined as a choice controller but is not an observer or signatory of the template, meaning they may not be able to see the contract to exercise the choice."
   Warning
   [Visibility]
   $ \mod_ ->
-    [ mkFinding (InspectionId "SPEC-VIS-002") Warning (tplLocation tpl)
+    [ mkFinding (InspectionId "SPEC-VIS-002") Warning (chLocation ch)
         ("Template '" <> tplName tpl
-         <> "': signatory/observer references '" <> presentSuffix
-         <> "' path but not '" <> missingSuffix
-         <> "' — the counterparty cannot see this contract")
-        (Just $ "Add the '" <> missingSuffix <> "' party to the observer clause")
+         <> "': Choice '" <> chName ch <> "' is controlled by '" <> showPartyName ctrl
+         <> "' but this party is not in the signatory or observer lists.")
+        (Just $ "Add '" <> showPartyName ctrl <> "' to the observer clause of template '" <> tplName tpl <> "'")
         (Just (tplName tpl))
-        Nothing
+        (Just (chName ch))
     | DTemplate tpl <- moduleDecls mod_
-    , let allPartyExprs = tplSignatory tpl ++ tplObserver tpl
-    , let allPaths = concatMap extractDottedPaths allPartyExprs
-    , (presentSuffix, missingSuffix) <- findMissingSymmetricPaths allPaths
+    , ch <- tplChoices tpl
+    , ctrl <- chController ch
+    , not (isThisOrSelf ctrl)
+    , not (partyInStakeholders ctrl (tplSignatory tpl ++ tplObserver tpl))
     ]
 
--- | Known symmetric party pairs.  If one suffix is present, the other
--- should also be present in the signatory/observer list.
-symmetricPairs :: [(Text, Text)]
-symmetricPairs =
-  [ ("sender", "receiver")
-  , ("buyer", "seller")
-  , ("lender", "borrower")
-  , ("payer", "payee")
-  , ("maker", "taker")
-  , ("transferor", "transferee")
-  , ("grantor", "grantee")
-  , ("issuer", "holder")
-  ]
+-- | Deep check if a party expression is present in the stakeholders list
+-- (Handles nested lists and dotted fields better)
+partyInStakeholders :: PartyExpr -> [PartyExpr] -> Bool
+partyInStakeholders pe stakeholders =
+  let peStr = showPartyName pe
+      stakeholdersStr = map showPartyName (flattenPartyExprs stakeholders)
+  in peStr `elem` stakeholdersStr
 
--- | Extract dotted path suffixes (last segment) from party expressions.
--- E.g., @PEField "allocation" "sender"@ → @["sender"]@
--- E.g., @PEExpr (EVar "allocation.transferLeg.sender")@ → @["sender"]@
-extractDottedPaths :: PartyExpr -> [Text]
-extractDottedPaths (PEField _ field _) = [T.toLower field]
-extractDottedPaths (PEExpr (EVar v _) _) =
-  case T.splitOn "." v of
-    parts@(_:_:_) -> [T.toLower (last parts)]
-    _ -> []
-  where last xs = xs !! (length xs - 1)
-extractDottedPaths (PEList ps _) = concatMap extractDottedPaths ps
-extractDottedPaths _ = []
-
--- | Given a list of path suffixes present in signatory/observer,
--- find (present, missing) pairs from the symmetric pair table.
-findMissingSymmetricPaths :: [Text] -> [(Text, Text)]
-findMissingSymmetricPaths paths =
-  let pathSet = map T.toLower paths
-  in [ (a, b)
-     | (a, b) <- symmetricPairs ++ map (\(x,y) -> (y,x)) symmetricPairs
-     , a `elem` pathSet
-     , b `notElem` pathSet
-     ]
+flattenPartyExprs :: [PartyExpr] -> [PartyExpr]
+flattenPartyExprs = concatMap go
+  where
+    go (PEList ps _) = flattenPartyExprs ps
+    go p = [p]

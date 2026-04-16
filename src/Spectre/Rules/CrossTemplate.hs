@@ -173,16 +173,12 @@ extractDiscriminators _ _ = []
 
 extractDiscriminatorsFromFields :: Text -> [(Text, Expr)] -> [(Text, Text)]
 extractDiscriminatorsFromFields typeName fields =
+  -- Extract ALL string/enum literal field assignments as potential discriminators.
+  -- No name-based filtering — any literal field could be a discriminator.
   [ (typeName, litVal)
-  | (fName, fExpr) <- fields
-  , isDiscriminatorFieldName fName
+  | (_fName, fExpr) <- fields
   , litVal <- extractLiteral fExpr
   ]
-
-isDiscriminatorFieldName :: Text -> Bool
-isDiscriminatorFieldName name =
-  let lower = T.toLower name
-  in any (`T.isInfixOf` lower) ["action", "eventtype", "eventaction", "type", "kind", "operation"]
 
 extractLiteral :: Expr -> [Text]
 extractLiteral (EVar name _) = [name]  -- enum constructors like AdminBurnNative
@@ -430,39 +426,31 @@ mutationKinds stmts = Set.toList $ Set.fromList $ concatMap classify stmts
     classifyExpr (ECase _ alts _) = concatMap (classifyExpr . snd) alts
     classifyExpr _              = []
 
--- | SPEC-DIAG-006: Consuming cancel/reject/revoke choice without audit trail
+-- | SPEC-DIAG-006: Consuming choice with trivial body (no successor contract)
 --
--- Detects consuming choices whose name suggests a cancellation, rejection,
--- or revocation action but whose body is trivial (just `pure ()` or
--- `return ()`).  Because the choice is consuming, it archives the contract,
--- but without creating any audit record the reason for the action is lost.
+-- A consuming choice whose body is trivial (just `pure ()` or `return ()`)
+-- archives the contract without creating any audit record or successor.
+-- The reason for the termination is lost. This is detected STRUCTURALLY:
+-- any consuming choice with a trivial body, regardless of its name.
 cancelWithoutAuditTrail :: Inspection
 cancelWithoutAuditTrail = mkInspection
   "SPEC-DIAG-006"
-  "Consuming cancel/reject choice without audit trail"
-  "A consuming choice with cancellation/rejection semantics has a trivial body (pure ()) — the contract is archived without recording a reason or creating an audit record."
+  "Consuming choice with trivial body — no audit trail"
+  "A consuming choice has a trivial body (pure ()) — the contract is archived without recording a reason or creating a successor/audit record."
   Warning
   [Diagnostics]
   $ \mod_ ->
     [ mkFinding (InspectionId "SPEC-DIAG-006") Warning (chLocation ch)
         ("Template '" <> tplName tpl <> "': consuming choice '"
-         <> chName ch <> "' archives the contract without creating an audit record — cancellation reason is lost")
-        (Just "Create an audit/cancellation record in the choice body, or accept a 'reason' parameter and persist it")
+         <> chName ch <> "' archives the contract without creating any successor or audit record")
+        (Just "Create an audit/result record in the choice body, or accept a 'reason' parameter and persist it")
         (Just (tplName tpl))
         (Just (chName ch))
     | DTemplate tpl <- moduleDecls mod_
     , ch <- tplChoices tpl
     , chConsuming ch /= NonConsuming      -- must be consuming (archives)
-    , hasCancelRejectName (chName ch)     -- name suggests cancel/reject
     , isTrivialBody (chBody ch)           -- body is just pure () / return ()
     ]
-
--- | Does the choice name contain a cancel/reject/revoke keyword?
-hasCancelRejectName :: Text -> Bool
-hasCancelRejectName name =
-  let lower = T.toLower name
-  in any (`T.isInfixOf` lower)
-       [ "cancel", "reject", "revoke", "deny", "decline", "dismiss", "refuse" ]
 
 -- | Is the choice body trivial — just `pure ()`, `return ()`, or empty?
 -- A trivial body means the choice archives the contract (consuming) but

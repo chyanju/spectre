@@ -12,9 +12,10 @@ DAML Source Files
    AST (Module)
        |
        v
-   Analysis Engine
-       |
-       +--- Inspection Rules (38 rules, 10 modules)
+    Analysis Engine
+        |
+        +--- Rules.Utils (shared AST traversal, assertion detection, type classification)
+        +--- Inspection Rules (40 rules, 10 modules)
        |
        v
    Findings
@@ -100,17 +101,18 @@ analyze :: Config -> [Module] -> AnalysisResult
 
 ### Rule Modules (`src/Spectre/Rules/`)
 
-10 modules, each exporting a `[Inspection]` list:
+10 modules, each exporting a `[Inspection]` list, plus a shared utility module:
 
 | Module | Rules | Focus |
 |--------|-------|-------|
+| `Utils.hs` | — | Shared AST traversal (`foldExpr`/`foldStmts`), universal assertion detection, type-based field classification |
 | `Authorization.hs` | 2 | Signatory model, role-based access control |
 | `Visibility.hs` | 2 | Observer/controller visibility |
 | `Temporal.hs` | 3 | Time handling, deadlines, phase separation |
-| `Invariant.hs` | 13 | Input validation, data consistency |
+| `Invariant.hs` | 14 | Input validation, data consistency |
 | `State.hs` | 2 | Collection operations, state transitions |
 | `Lifecycle.hs` | 4 | Contract creation/archival patterns |
-| `Scalability.hs` | 3 | Resource bounds, contract bloat |
+| `Scalability.hs` | 4 | Resource bounds, contract bloat |
 | `CrossTemplate.hs` | 6 | Error messages, naming, audit trails |
 | `Upgrade.hs` | 2 | Version compatibility, interface views |
 | `Integration.hs` | 1 | Cross-system parameter validation |

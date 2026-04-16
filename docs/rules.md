@@ -1,6 +1,6 @@
 # Spectre Rules Catalog
 
-Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, severity level, and targets a specific DAML security concern.
+Spectre ships 40 inspection rules across 10 modules. Each rule has a unique ID, severity level, and targets a specific DAML security concern.
 
 ## Severity Levels
 
@@ -15,7 +15,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | Severity | Count |
 |----------|-------|
 | Error | 2 |
-| Warning | 31 |
+| Warning | 33 |
 | Info | 5 |
 
 ---
@@ -24,7 +24,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
-| SPEC-AUTH-001 | Signatory allows unilateral archive | Warning | Template signatory model allows a single actor to unilaterally archive records. Consider requiring a governance party as signatory to protect audit trails. |
+| SPEC-AUTH-001 | Signatory allows unilateral archive | Warning | Template signatory model has only one signatory and lacks complex multi-party choices, allowing the sole signatory to unilaterally archive records. Consider requiring a governance party as signatory to protect shared facts. |
 | SPEC-AUTH-002 | Missing role membership check | Error | Choice controller is a parameter but the body does not verify role membership (e.g., Set.member check). Any party who can exercise this choice may bypass role-based access control. |
 
 ## Visibility (2 rules)
@@ -32,7 +32,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
 | SPEC-VIS-001 | Controller not listed as observer | Error | A choice controller is not listed as either a signatory or observer of the template. The controller cannot see this contract and therefore cannot exercise this choice. |
-| SPEC-VIS-002 | Missing symmetric party in observer clause | Warning | Template observers/signatories reference one side of a party pair (e.g., sender) but not the counterpart (e.g., receiver), creating a visibility gap. |
+| SPEC-VIS-002 | Choice controller is not a stakeholder (Asymmetric Role) | Warning | A party is defined as a choice controller but is not an observer or signatory of the template, meaning they may not be able to see the contract to exercise the choice. |
 
 ## Temporal (3 rules)
 
@@ -42,7 +42,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | SPEC-TEMP-002 | Potentially off-by-one time comparison | Info | Time comparison uses '<=' which may allow execution at the exact deadline moment. Consider whether '<' is more appropriate. |
 | SPEC-TEMP-003 | getTime result stored in contract field | Warning | getTime returns preparation-time in Canton, not sequencer time. Storing it in a contract field causes incorrect time arithmetic under MPC/multi-sig signing. |
 
-## Invariant (13 rules)
+## Invariant (14 rules)
 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
@@ -59,6 +59,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | SPEC-INV-011 | Time field not validated in ensure clause | Warning | Template has a Time-typed field but the ensure clause does not reference it, potentially allowing contracts with invalid time relationships. |
 | SPEC-INV-012 | Indirect parameter assignment without guard | Warning | A choice parameter is wrapped in Some and assigned to a field via a let binding, but there is no assertion that the new value differs from the old or that the existing state is None. |
 | SPEC-INV-013 | Uncanonicalized list persisted in created contract | Warning | Data flows to both a processing function and a create statement without canonicalization, creating a potential mismatch between processed and stored state. |
+| SPEC-INV-014 | Unsafe division without zero check | Warning | Division operation using a variable denominator without prior validation against zero. Can lead to transaction aborts (DoS). |
 
 ## State (2 rules)
 
@@ -76,13 +77,14 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | SPEC-LIFE-003 | Split without remainder handling | Warning | A consuming choice archives a contract and re-creates it with a partial amount but does not handle the remainder. The difference is effectively lost. |
 | SPEC-LIFE-004 | Consuming choice creates different template type | Warning | A consuming choice archives the current contract and creates a contract of a different template type. ContractId references from other contracts will become dangling. |
 
-## Scalability (3 rules)
+## Scalability (4 rules)
 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
 | SPEC-SCALE-001 | Unbounded collection growth | Warning | Template has a collection field (list/set) that is only ever appended to but never pruned. This will grow without bound over time. |
 | SPEC-SCALE-002 | Event-as-contract bloat | Warning | Template has no choices. Contracts of this type can only be archived by signatories and will accumulate in the active contract set. |
 | SPEC-SCALE-003 | Unbounded iteration with create | Warning | A list is iterated (forA/mapA/traverse) with a callback that calls create, but there is no assertion on the list length. |
+| SPEC-SCALE-004 | Observer set bloat | Warning | A template field of type `[Party]` is used as an observer and continuously appended to via a choice, causing performance/privacy degradation. |
 
 ## CrossTemplate / Diagnostics (6 rules)
 
@@ -93,7 +95,7 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 | SPEC-DIAG-003 | Misleading assertMsg message | Info | An assertMsg error message describes the success condition rather than the failure. When the assertion fails, operators see a misleading message. |
 | SPEC-DIAG-004 | Unused top-level definition | Info | A top-level function or value is defined but not referenced elsewhere in the module. Dead code increases maintenance burden. |
 | SPEC-DIAG-005 | Misleading choice name | Warning | A consuming choice has a name suggesting read-only/validation semantics but its body performs state mutations. |
-| SPEC-DIAG-006 | Consuming cancel/reject choice without audit trail | Warning | A consuming choice with cancellation/rejection semantics has a trivial body (pure ()) -- the contract is archived without recording a reason or creating an audit record. |
+| SPEC-DIAG-006 | Consuming choice with trivial body -- no audit trail | Warning | A consuming choice has a trivial body (pure ()) -- the contract is archived without recording a reason or creating a successor/audit record. |
 
 ## Upgrade (2 rules)
 
@@ -106,4 +108,4 @@ Spectre ships 38 inspection rules across 10 modules. Each rule has a unique ID, 
 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
-| SPEC-INTEG-001 | Unchecked 'expected' parameter | Warning | A choice parameter prefixed with 'expected' is not validated against the corresponding template field. A caller could pass a mismatched value. |
+| SPEC-INTEG-001 | Parameter assigned to template field without validation | Warning | A choice parameter is assigned directly to a template field of the same type without any assertion comparing them. A caller could pass a mismatched value. |

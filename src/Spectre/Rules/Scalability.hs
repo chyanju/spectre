@@ -7,9 +7,11 @@ module Spectre.Rules.Scalability
   ) where
 
 import Data.Text (Text)
+import qualified Data.Text as T
 
 import Spectre.Ast
 import Spectre.Inspection
+import Spectre.Rules.Utils (isCollectionType, isCollectionInsertCall, isCollectionDeleteCall)
 
 -- | All scalability rules
 scalabilityRules :: [Inspection]
@@ -41,21 +43,15 @@ unboundedCollectionGrowth = mkInspection
         Nothing
     | DTemplate tpl <- moduleDecls mod_
     , f <- tplFields tpl
-    , isCollectionType (fieldType f)
+    , isCollectionTypeLocal (fieldType f)
     , fieldGrowsOnly (fieldName f) (tplChoices tpl)
     ]
 
 -- Helpers
 
-isCollectionType :: Maybe Type -> Bool
-isCollectionType Nothing = False
-isCollectionType (Just ty) = case ty of
-  TList _ _ -> True
-  TApp (TCon name _) _ _ ->
-    name `elem` ["Set", "Map", "DA.Set", "DA.Map", "Set.Set", "Map.Map"]
-  TCon name _ ->
-    name `elem` ["Set", "Map", "DA.Set", "DA.Map"]
-  _ -> False
+isCollectionTypeLocal :: Maybe Type -> Bool
+isCollectionTypeLocal Nothing = False
+isCollectionTypeLocal (Just ty) = isCollectionType ty
 
 -- | Check if a field is only ever appended to
 fieldGrowsOnly :: Text -> [Choice] -> Bool
@@ -117,10 +113,10 @@ exprShrinksField name expr = case expr of
   _ -> False
 
 isInsertFunc :: Text -> Bool
-isInsertFunc f = f `elem` ["Set.insert", "Map.insert", "DA.Set.insert", "DA.Map.insert", "insert"]
+isInsertFunc = isCollectionInsertCall
 
 isDeleteFunc :: Text -> Bool
-isDeleteFunc f = f `elem` ["Set.delete", "Map.delete", "DA.Set.delete", "DA.Map.delete", "delete", "Set.filter", "Map.filter", "filter"]
+isDeleteFunc = isCollectionDeleteCall
 
 isInsertExpr :: Expr -> Bool
 isInsertExpr (EApp (EVar f _) _ _) = isInsertFunc f
@@ -314,7 +310,10 @@ extractBoundsVars (EParens e _) = extractBoundsVars e
 extractBoundsVars _ = []
 
 isLengthFunc :: Text -> Bool
-isLengthFunc f = f `elem` ["length", "List.length", "DA.List.length", "List.size", "Set.size"]
+isLengthFunc f =
+  let base = snd $ T.breakOnEnd "." f
+      base' = if T.null base then f else base
+  in base' `elem` ["length", "size"]
 
 
 -- | SPEC-SCALE-004: Observer set bloat

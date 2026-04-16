@@ -11,19 +11,19 @@
 
 ## Benchmark Results
 
-Evaluated against a 38-case labeled dataset of real audit findings, synthetic patterns, and release-note bugs:
+Evaluated against a 45-case labeled dataset of real audit findings, synthetic patterns, and release-note bugs:
 
 | Metric | Value |
 |--------|-------|
-| Precision | 100% |
-| Recall | 97% |
-| F1 Score | 98% |
-| True Positives | 28 |
-| True Negatives | 17 |
-| False Positives | 0 |
-| False Negatives | 1 |
+| Precision | 95% |
+| Recall | 84% |
+| F1 Score | 89% |
+| True Positives | 37 |
+| True Negatives | 18 |
+| False Positives | 2 |
+| False Negatives | 7 |
 
-The 1 false negative involves a pattern that is out of scope for static pattern matching.
+The false negatives involve patterns requiring data-flow analysis or cross-module reasoning that is beyond the scope of syntactic pattern matching.
 
 ## Requirements
 
@@ -84,7 +84,7 @@ stack exec spectre -- benchmark --dir benchmarks -v
 ### List available rules
 
 ```bash
-# Print all 38 inspection rules with IDs, severities, and descriptions
+# Print all 40 inspection rules with IDs, severities, and descriptions
 stack exec spectre -- rules
 ```
 
@@ -96,30 +96,30 @@ stack test
 
 ## Rules
 
-Spectre ships 38 rules across 10 modules covering DAML-specific security concerns:
+Spectre ships 40 rules across 10 modules covering DAML-specific security concerns:
 
 | Module | Rules | Examples |
 |--------|-------|---------|
 | Authorization | 2 | Unilateral archive, missing role check |
-| Visibility | 2 | Controller not observer, asymmetric party |
+| Visibility | 2 | Controller not observer, asymmetric role |
 | Temporal | 3 | Missing deadline, off-by-one time, getTime misuse |
-| Invariant | 13 | Missing validation, partial functions, floating-point equality |
+| Invariant | 14 | Missing validation, partial functions, floating-point equality, unsafe division |
 | State | 2 | Set.insert without guard, asymmetric add/remove |
 | Lifecycle | 4 | NonConsuming creates, missing consuming choice, split remainder |
-| Scalability | 3 | Unbounded growth, event-as-contract bloat |
+| Scalability | 4 | Unbounded growth, event-as-contract bloat, observer set bloat |
 | CrossTemplate | 6 | Duplicate errors, misleading names, missing audit trail |
 | Upgrade | 2 | Raw ContractId return, interface view field drop |
-| Integration | 1 | Unchecked expected parameter |
+| Integration | 1 | Unchecked parameter-to-field assignment |
 
 See [docs/rules.md](docs/rules.md) for the full catalog.
 
 ## Architecture
 
 ```
-DAML Source → Parser (Megaparsec) → AST → Analysis Engine → Rules → Findings → Report
+DAML Source → Parser (Megaparsec) → AST → Analysis Engine → Rules (+ Utils) → Findings → Report
 ```
 
-The parser produces a DAML-specific AST with `Template`, `Choice`, and `PartyExpr` as first-class nodes. Each rule is a pure function `Module -> [Finding]`. The analysis engine filters rules by configuration and runs them against every parsed module.
+The parser produces a DAML-specific AST with `Template`, `Choice`, and `PartyExpr` as first-class nodes. Each rule is a pure function `Module -> [Finding]`. A shared `Rules.Utils` module provides universal AST traversal (`foldExpr`/`foldStmts`), assertion detection, and type-based field classification to ensure consistent, deep analysis across all rules. The analysis engine filters rules by configuration and runs them against every parsed module.
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
@@ -143,6 +143,7 @@ spectre/
 │   ├── Benchmark.hs             # Benchmark evaluation harness
 │   └── Rules/
 │       ├── All.hs               # Rule registry
+│       ├── Utils.hs             # Shared AST traversal, assertion detection, type classification
 │       ├── Authorization.hs
 │       ├── Visibility.hs
 │       ├── Temporal.hs
@@ -154,7 +155,7 @@ spectre/
 │       ├── Upgrade.hs
 │       └── Integration.hs
 ├── test/Spec.hs                 # Test suite (13 tests)
-├── benchmarks/                  # 38-case labeled dataset
+├── benchmarks/                  # 45-case labeled dataset
 ├── package.yaml                 # hpack project config
 ├── stack.yaml                   # Stack resolver config
 └── LICENSE                      # MIT
@@ -162,7 +163,7 @@ spectre/
 
 ## Documentation
 
-- [Rules Catalog](docs/rules.md) — All 38 rules with IDs, severities, and descriptions
+- [Rules Catalog](docs/rules.md) — All 40 rules with IDs, severities, and descriptions
 - [Benchmark Dataset](docs/benchmarks.md) — Structure, sources, schema, and evaluation methodology
 - [Architecture](docs/architecture.md) — Parser, AST, analysis engine, and data flow
 

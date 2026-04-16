@@ -200,6 +200,14 @@ authorizationTests = describe "Authorization" $ do
           , "  where"
           , "    signatory eventGovernor"
           , "    observer eventActor"
+          , "    choice Approve : ()"
+          , "      controller eventGovernor"
+          , "      do"
+          , "        return ()"
+          , "    choice Reject : ()"
+          , "      controller eventActor"
+          , "      do"
+          , "        return ()"
           ]
     let findings = analyzeSource src
     any (\f -> findingInspection f == InspectionId "SPEC-AUTH-001") findings
