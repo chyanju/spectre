@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.4.0 — 2026-04-16
+
+### Added
+
+- **SPEC-INV-014**: New rule to detect unsafe division (`/`) by a variable denominator without prior zero-check. Can prevent critical division-by-zero crashes (DoS) in DAML `Decimal` calculations.
+- **SPEC-SCALE-004**: New rule to detect observer set bloat. Identifies templates using `[Party]` list fields as observers and appending to them via `::` or `++` inside choices.
+- **Benchmarks**: Added two new synthetic benchmark cases `DOC-INV-02` (Unsafe division) and `DOC-SCALE-04` (Observer bloat) to evaluate the new rules. Synchronized the benchmark schema and corpus.
+
+### Fixed
+
+- **Parser**: Added native support for the DAML cons/list-append operator (`::`) as an infix operator in `EInfix`, ensuring proper AST generation for list growth operations.
+- **Rule handlers**: Improved the robustness of zero-guards in `SPEC-INV-014` to recognize not only `/=` and `!=`, but also `<`, `>`, `<=`, and `>=` against `0.0` or `0`, drastically reducing false positives in real-world financial contracts.
+
 ## v0.1.3.0 — 2026-04-15
 
 ### Fixed

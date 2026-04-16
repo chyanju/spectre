@@ -1,0 +1,46 @@
+-- DOC-INTEG-03 BUGGY: Key uniqueness violation via duplicate creation
+-- The TokenFactory creates Token contracts keyed by (issuer, symbol).
+-- The Mint choice does not check whether a token with the same key
+-- already exists, causing a runtime key collision error.
+
+module Synthetic.TokenRegistry where
+
+template Token
+  with
+    issuer : Party
+    symbol : Text
+    totalSupply : Decimal
+  where
+    signatory issuer
+
+    key (issuer, symbol) : (Party, Text)
+    maintainer key._1
+
+    choice Burn : ContractId Token
+      with
+        amount : Decimal
+      controller issuer
+      do
+        assertMsg "Burn amount exceeds supply" (totalSupply >= amount)
+        create this with totalSupply = totalSupply - amount
+
+template TokenFactory
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+    nonconsuming choice Mint : ContractId Token
+      with
+        symbol : Text
+        amount : Decimal
+      controller issuer
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        -- BUG: no check for existing token with same key.
+        -- If a Token with (issuer, symbol) already exists,
+        -- this will fail at runtime with a duplicate key error.
+        create Token with
+          issuer
+          symbol
+          totalSupply = amount

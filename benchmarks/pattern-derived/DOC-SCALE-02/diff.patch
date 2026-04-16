@@ -1,0 +1,73 @@
+--- buggy/AccountBalances.daml	2026-04-16 00:25:50.111241958 -0700
++++ fixed/AccountBalances.daml	2026-04-16 00:25:56.452190288 -0700
+@@ -1,40 +1,51 @@
+--- DOC-SCALE-02 BUGGY: Unbounded map growth in singleton contract
+--- The AccountLedger stores all account balances in a single DA.Map field.
+--- As accounts are added, the contract payload grows without bound,
+--- eventually exceeding Canton's maximum transaction size.
++-- DOC-SCALE-02 FIXED: Per-account contracts instead of unbounded map
++-- Each account is a separate contract, keeping the ledger admin contract
++-- constant-size regardless of the number of accounts.
+ 
+ module Synthetic.AccountBalances where
+ 
+-import DA.Map as Map
+-
+ template AccountLedger
+   with
+     bank : Party
+-    balances : Map.Map Text Decimal  -- BUG: grows without bound
++    accountCount : Int
+   where
+     signatory bank
+ 
+-    choice OpenAccount : ContractId AccountLedger
++    -- FIXED: creates a separate Account contract instead of growing the map
++    choice OpenAccount : (ContractId AccountLedger, ContractId Account)
+       with
++        accountHolder : Party
+         accountId : Text
+         initialDeposit : Decimal
+       controller bank
+       do
+-        -- BUG: no size check; map grows with every new account
+-        assertMsg "Account already exists" (Map.lookup accountId balances == None)
+         assertMsg "Deposit must be positive" (initialDeposit > 0.0)
+-        create this with
+-          balances = Map.insert accountId initialDeposit balances
++        acctCid <- create Account with
++          bank
++          accountHolder
++          accountId
++          balance = initialDeposit
++        ledgerCid <- create this with accountCount = accountCount + 1
++        pure (ledgerCid, acctCid)
++
++-- FIXED: individual account contract; constant-size per account
++template Account
++  with
++    bank : Party
++    accountHolder : Party
++    accountId : Text
++    balance : Decimal
++  where
++    signatory bank
++    observer accountHolder
+ 
+-    choice Credit : ContractId AccountLedger
++    key (bank, accountId) : (Party, Text)
++    maintainer key._1
++
++    choice Credit : ContractId Account
+       with
+-        accountId : Text
+         amount : Decimal
+       controller bank
+       do
+         assertMsg "Amount must be positive" (amount > 0.0)
+-        case Map.lookup accountId balances of
+-          None -> abort "Account not found"
+-          Some bal ->
+-            create this with
+-              balances = Map.insert accountId (bal + amount) balances
++        create this with balance = balance + amount

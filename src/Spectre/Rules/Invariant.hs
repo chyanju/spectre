@@ -33,6 +33,7 @@ invariantRules =
   , timeFieldNotInEnsure
   , indirectParamAssignmentNoGuard
   , uncanonicalisedListPersist
+  , unsafeDivision
   ]
 
 -- | SPEC-INV-001: Missing input validation on choice parameters
@@ -1383,3 +1384,82 @@ exprHasCanonicalization (ELam _ body _) = exprHasCanonicalization body
 exprHasCanonicalization (ELet binds body _) =
   any (exprHasCanonicalization . bindExpr) binds || exprHasCanonicalization body
 exprHasCanonicalization _ = False
+
+-- | SPEC-INV-014: Unsafe division without zero check
+unsafeDivision :: Inspection
+unsafeDivision = mkInspection
+  "SPEC-INV-014"
+  "Unsafe division without zero check"
+  "Division operation using a variable denominator without prior validation against zero. Can lead to transaction aborts (DoS)."
+  Warning
+  [Invariant]
+  $ \mod_ ->
+    [ mkFinding (InspectionId "SPEC-INV-014") Warning loc
+        ("Choice '" <> chName ch <> "' in template '" <> tplName tpl
+         <> "': division by variable '" <> denom <> "' without prior zero check")
+        (Just $ "Add 'assertMsg \"...\" (" <> denom <> " /= 0.0)' before division")
+        (Just (tplName tpl))
+        (Just (chName ch))
+    | DTemplate tpl <- moduleDecls mod_
+    , ch <- tplChoices tpl
+    , (loc, denom) <- findUnsafeDivisions (chBody ch)
+    ]
+
+findUnsafeDivisions :: [Stmt] -> [(SrcSpan, Text)]
+findUnsafeDivisions stmts =
+  let divs = extractDivisions stmts
+      guards = extractZeroGuards stmts
+  in [(loc, denom) | (loc, denom) <- divs, not (denom `Set.member` guards)]
+
+extractDivisions :: [Stmt] -> [(SrcSpan, Text)]
+extractDivisions = concatMap stmtDivs
+  where
+    stmtDivs (SExpr e _) = exprDivs e
+    stmtDivs (SBind _ e _) = exprDivs e
+    stmtDivs (SLet binds _) = concatMap (exprDivs . bindExpr) binds
+    stmtDivs (SCreate _ e _) = exprDivs e
+    stmtDivs (SReturn e _) = exprDivs e
+    stmtDivs (SAssert _ e _) = exprDivs e
+    stmtDivs _ = []
+
+    exprDivs (EInfix "/" _ (EVar denom _) s) = [(s, denom)]
+    exprDivs (EInfix _ l r _) = exprDivs l ++ exprDivs r
+    exprDivs (EApp f a _) = exprDivs f ++ exprDivs a
+    exprDivs (EParens e _) = exprDivs e
+    exprDivs (EIf c t e _) = exprDivs c ++ exprDivs t ++ exprDivs e
+    exprDivs (ECase e alts _) = exprDivs e ++ concatMap (exprDivs . snd) alts
+    exprDivs (ELet binds body _) = concatMap (exprDivs . bindExpr) binds ++ exprDivs body
+    exprDivs (EDo stmts _) = extractDivisions stmts
+    exprDivs _ = []
+
+extractZeroGuards :: [Stmt] -> Set Text
+extractZeroGuards = Set.fromList . concatMap stmtGuards
+  where
+    stmtGuards (SAssert _ e _) = exprGuards e
+    stmtGuards (SExpr e _) = exprGuards e
+    stmtGuards _ = []
+
+    exprGuards (EInfix ">" (EVar v _) (ENum "0.0" _) _) = [v]
+    exprGuards (EInfix ">" (EVar v _) (ELit "0.0" _) _) = [v]
+    exprGuards (EInfix "<" (ENum "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix "<" (ELit "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix ">=" (EVar v _) (ENum "0.0" _) _) = [v]
+    exprGuards (EInfix ">=" (EVar v _) (ELit "0.0" _) _) = [v]
+    exprGuards (EInfix "<=" (ENum "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix "<=" (ELit "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix ">" (EVar v _) (ENum "0" _) _) = [v]
+    exprGuards (EInfix ">" (EVar v _) (ELit "0" _) _) = [v]
+    exprGuards (EInfix "/=" (EVar v _) (ENum "0" _) _) = [v]
+    exprGuards (EInfix "/=" (EVar v _) (ELit "0" _) _) = [v]
+    exprGuards (EInfix "/=" (EVar v _) (ENum "0.0" _) _) = [v]
+    exprGuards (EInfix "/=" (ENum "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix "/=" (EVar v _) (ELit "0.0" _) _) = [v]
+    exprGuards (EInfix "/=" (ELit "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix "!=" (EVar v _) (ENum "0.0" _) _) = [v]
+    exprGuards (EInfix "!=" (ENum "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EInfix "!=" (EVar v _) (ELit "0.0" _) _) = [v]
+    exprGuards (EInfix "!=" (ELit "0.0" _) (EVar v _) _) = [v]
+    exprGuards (EApp (EApp (EVar "assertMsg" _) _ _) cond _) = exprGuards cond
+    exprGuards (EApp f a _) = exprGuards f ++ exprGuards a
+    exprGuards (EParens e _) = exprGuards e
+    exprGuards _ = []

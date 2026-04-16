@@ -1,0 +1,17 @@
+module Synthetic.UnsafeDivision where
+
+template PriceCalculator
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CalculatePrice : Decimal
+      with 
+        quantity : Decimal
+        totalAmount : Decimal
+      controller admin
+      do
+        -- FIXED: Explicitly check for zero
+        assertMsg "Quantity cannot be zero" (quantity /= 0.0)
+        return (totalAmount / quantity)

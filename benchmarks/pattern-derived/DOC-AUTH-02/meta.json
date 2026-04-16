@@ -1,0 +1,43 @@
+{
+  "id": "DOC-AUTH-02",
+  "title": "Flexible Controller Escalation",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Authorization Pattern - Role Reassignment",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "DelegatedAction.ReassignDelegate choice",
+  "affected_modules": ["Synthetic.FlexibleController"],
+  "pattern_family": "auth",
+  "pattern_name": "controller_escalation",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A lower-privileged controller party is allowed to arbitrarily reassign their own role to another party. This effectively grants that party unauthorized power over the contract's lifecycle.",
+  "recommendation": "Require the contract signatory or owner to authorize reassignments of roles.",
+  "code_snippets": {
+    "buggy": "buggy/FlexibleController.daml",
+    "fixed": "fixed/FlexibleController.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_signatory",
+    "description": "Reassignment of controllers should be signed by an owner.",
+    "static_signal": "A controller choice mutates its own controller field without asserting the original signatory's consent.",
+    "symbolic_property": "forall c. executes(ReassignDelegate, c) => signed_by(owner, c)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["auth", "escalation", "synthetic"],
+  "notes": ""
+}

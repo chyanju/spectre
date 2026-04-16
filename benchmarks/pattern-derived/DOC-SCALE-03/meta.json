@@ -1,0 +1,43 @@
+{
+  "id": "DOC-SCALE-03",
+  "title": "Linear list scan in hot path instead of O(log n) Set lookup",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Performance Pattern - Data Structure Selection",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "Whitelist.CheckAndExecute choice",
+  "affected_modules": ["Synthetic.Whitelist"],
+  "pattern_family": "scalability",
+  "pattern_name": "linear_scan_in_hot_path",
+  "severity": "low",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "The Whitelist template stores allowed parties in a [Party] list and uses elem for membership checks. This is O(n) per lookup. For high-frequency choices like CheckAndExecute, this causes performance degradation as the whitelist grows. Using DA.Set provides O(log n) membership checks.",
+  "recommendation": "Use DA.Set (or DA.Map for key-value data) instead of lists when membership checks or lookups are performed in choice bodies. Reserve lists for ordered data that needs sequential processing.",
+  "code_snippets": {
+    "buggy": "buggy/Whitelist.daml",
+    "fixed": "fixed/Whitelist.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "redundant_operation",
+    "description": "Membership checks should use Set/Map data structures rather than linear list scans.",
+    "static_signal": "elem/notElem called on [Party] field in choice body; field could be replaced with Set Party",
+    "symbolic_property": "forall w n. size(w.allowedParties) == n => complexity(CheckAndExecute, w) == O(log(n))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": ["scalability", "performance", "data-structure", "list-vs-set", "synthetic"],
+  "notes": "Performance anti-pattern. While not a correctness bug, it becomes a DoS vector on Canton when the list is large enough to cause transaction timeouts."
+}

@@ -1,0 +1,23 @@
+--- DOC-TEMP-02/buggy/TimeBoundOffer.daml	2026-04-16 00:41:47.722894163 -0700
++++ DOC-TEMP-02/fixed/TimeBoundOffer.daml	2026-04-16 00:41:57.265786744 -0700
+@@ -1,5 +1,5 @@
+--- DOC-TEMP-02 BUGGY: Missing Time Bound on Choice
+--- A time-sensitive action (ClaimOffer) does not check the expiration time.
++-- DOC-TEMP-02 FIXED: Time Bound explicitly enforced
++-- A time-sensitive action (ClaimOffer) checks the expiration time using `getTime`.
+ 
+ module Synthetic.TimeBoundOffer where
+ 
+@@ -14,9 +14,10 @@
+     signatory merchant
+     observer customer
+ 
+-    -- BUG: The customer can claim the offer at any time, even after expiresAt
++    -- FIXED: The offer cannot be claimed after the expiration time.
+     choice ClaimOffer : ()
+       controller customer
+       do
+-        -- No time bound check. Customer can exploit expired offer.
++        now <- getTime
++        assertMsg "Offer has expired" (now <= expiresAt)
+         pure ()

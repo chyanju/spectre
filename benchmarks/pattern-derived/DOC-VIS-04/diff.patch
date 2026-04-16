@@ -1,0 +1,65 @@
+--- buggy/DelegatedPayment.daml	2026-04-16 00:24:35.846856821 -0700
++++ fixed/DelegatedPayment.daml	2026-04-16 00:24:42.592800164 -0700
+@@ -1,7 +1,7 @@
+--- DOC-VIS-04 BUGGY: Divulgence via nested exercise
+--- The PaymentAgent exercises a choice on a ConfidentialAccount contract
+--- within a DelegationRequest choice. This divulges the ConfidentialAccount
+--- contents (including balance) to the requester who submitted the delegation.
++-- DOC-VIS-04 FIXED: Avoid divulgence by using indirection
++-- Instead of directly exercising the confidential contract within the
++-- delegated choice, the bank processes the payment in a separate step
++-- using a PaymentInstruction intermediary.
+ 
+ module Synthetic.DelegatedPayment where
+ 
+@@ -22,23 +22,41 @@
+         assertMsg "Insufficient funds" (balance >= amount)
+         create this with balance = balance - amount
+ 
++-- FIXED: DelegationRequest no longer directly exercises ConfidentialAccount.
++-- Instead it creates a PaymentInstruction that the bank processes separately.
+ template DelegationRequest
+   with
+     bank : Party
+     requester : Party
+-    targetAccountCid : ContractId ConfidentialAccount
+     paymentAmount : Decimal
+   where
+     signatory bank, requester
+ 
+-    choice ExecutePayment : ContractId ConfidentialAccount
++    choice ApprovePayment : ContractId PaymentInstruction
+       controller bank
+       do
+-        -- BUG: exercising Debit here divulges the ConfidentialAccount
+-        -- (including balance) to the requester, because the requester
+-        -- is a signatory of DelegationRequest and the exercise is nested
+-        -- within this choice's transaction tree.
+-        exercise targetAccountCid Debit with amount = paymentAmount
++        -- FIXED: create instruction instead of directly exercising the
++        -- confidential contract; no divulgence to requester
++        create PaymentInstruction with
++          bank
++          amount = paymentAmount
++          requester
+ 
+--- The requester learns the full ConfidentialAccount state (balance, etc.)
+--- through divulgence, even though they are not an observer on that contract.
++-- Intermediary processed by bank alone; requester never sees account state
++template PaymentInstruction
++  with
++    bank : Party
++    amount : Decimal
++    requester : Party
++  where
++    signatory bank
++    observer requester
++
++    choice Process : ContractId ConfidentialAccount
++      with
++        accountCid : ContractId ConfidentialAccount
++      controller bank
++      do
++        -- Only bank exercises this; requester is observer on PaymentInstruction
++        -- but NOT a party to this nested exercise, so no divulgence occurs.
++        exercise accountCid Debit with amount

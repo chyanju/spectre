@@ -1,0 +1,44 @@
+-- DOC-REENT-01 BUGGY: Stale ContractId reuse in batch processing
+-- The BatchProcessor exercises a Counter choice in a loop but reuses
+-- the original ContractId on each iteration instead of the new
+-- ContractId returned by each exercise. After the first iteration,
+-- the original contract is archived and subsequent exercises fail.
+
+module Synthetic.BatchProcessor where
+
+import DA.Foldable (forA_)
+
+template Counter
+  with
+    admin : Party
+    value : Int
+  where
+    signatory admin
+
+    key admin : Party
+    maintainer key
+
+    choice Increment : ContractId Counter
+      with
+        delta : Int
+      controller admin
+      do
+        create this with value = value + delta
+
+template BatchJob
+  with
+    admin : Party
+    counterCid : ContractId Counter
+    deltas : [Int]
+  where
+    signatory admin
+
+    choice ProcessAll : ContractId Counter
+      controller admin
+      do
+        -- BUG: reuses the same counterCid for every iteration.
+        -- After the first exercise, counterCid is archived (consumed),
+        -- so the second exercise will fail with "contract not found".
+        -- BUG: always uses original counterCid, not the result of previous exercise
+        forA_ deltas (\d -> exercise counterCid Increment with delta = d)
+        pure counterCid

@@ -1,0 +1,43 @@
+{
+  "id": "DOC-KEY-01",
+  "title": "Mutation of Contract Key Fields in State Updates",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Lifecycle Pattern - Key Maintenance",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "UserProfile.UpdateStatus choice",
+  "affected_modules": ["Synthetic.KeyMaintenance"],
+  "pattern_family": "lifecycle",
+  "pattern_name": "key_mutation_during_update",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "An update choice inadvertently modifies a field that forms part of the contract key, breaking lookup continuity.",
+  "recommendation": "Avoid modifying fields that are part of the contract key during update choices unless specifically intending to rename the key.",
+  "code_snippets": {
+    "buggy": "buggy/KeyMaintenance.daml",
+    "fixed": "fixed/KeyMaintenance.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "state_inconsistency",
+    "description": "Contract keys should generally remain invariant during updates.",
+    "static_signal": "Creation of the same template type inside an update choice with key fields reassigned.",
+    "symbolic_property": "forall u. executes(UpdateStatus, u) => key(u_post) == key(u_pre)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": ["lifecycle", "contract-key", "synthetic"],
+  "notes": ""
+}

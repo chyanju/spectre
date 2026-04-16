@@ -1,0 +1,43 @@
+--- buggy/LinkedSettlement.daml	2026-04-16 00:28:08.919133425 -0700
++++ fixed/LinkedSettlement.daml	2026-04-16 00:28:14.204091999 -0700
+@@ -1,7 +1,6 @@
+--- DOC-FETCH-01 BUGGY: Stale ContractId reference causes runtime abort
+--- The Settlement template stores a ContractId to an Obligation contract.
+--- If the Obligation is archived (e.g. cancelled) before settlement,
+--- the fetch will fail with a runtime error.
++-- DOC-FETCH-01 FIXED: Use contract key lookup instead of stale ContractId
++-- Instead of storing a raw ContractId, the Settlement uses fetchByKey
++-- to locate the Obligation at execution time, and handles the missing case.
+ 
+ module Synthetic.LinkedSettlement where
+ 
+@@ -26,7 +25,7 @@
+     operator : Party
+     debtor : Party
+     creditor : Party
+-    obligationCid : ContractId Obligation  -- BUG: stores raw ContractId
++    -- FIXED: no stored ContractId; use key-based lookup at execution time
+   where
+     signatory operator
+     observer debtor, creditor
+@@ -34,9 +33,14 @@
+     choice Execute : ()
+       controller operator
+       do
+-        -- BUG: if Obligation was archived (cancelled), this fetch aborts
+-        -- the entire transaction with an uninformative runtime error.
+-        obligation <- fetch obligationCid
+-        assertMsg "Amount mismatch" (obligation.amount > 0.0)
+-        archive obligationCid
+-        pure ()
++        -- FIXED: look up by key instead of using a potentially stale ContractId
++        optObligation <- lookupByKey @Obligation (debtor, creditor)
++        case optObligation of
++          None ->
++            -- FIXED: graceful handling when obligation no longer exists
++            abort "Obligation not found or already cancelled"
++          Some obligationCid -> do
++            obligation <- fetch obligationCid
++            assertMsg "Amount mismatch" (obligation.amount > 0.0)
++            archive obligationCid
++            pure ()

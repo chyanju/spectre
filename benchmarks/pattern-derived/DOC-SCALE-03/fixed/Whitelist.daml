@@ -1,0 +1,40 @@
+-- DOC-SCALE-03 FIXED: Set-based membership for O(log n) lookup
+-- Uses DA.Set instead of list for efficient membership checks.
+
+module Synthetic.Whitelist where
+
+import DA.Set as Set
+
+template Whitelist
+  with
+    admin : Party
+    -- FIXED: Set Party for O(log n) membership checks
+    allowedParties : Set.Set Party
+  where
+    signatory admin
+
+    choice AddParty : ContractId Whitelist
+      with
+        party : Party
+      controller admin
+      do
+        -- FIXED: O(log n) membership check
+        assertMsg "Already whitelisted" (not (Set.member party allowedParties))
+        create this with allowedParties = Set.insert party allowedParties
+
+    choice CheckAndExecute : ()
+      with
+        caller : Party
+      controller caller
+      do
+        -- FIXED: O(log n) membership check
+        assertMsg "Not whitelisted" (Set.member caller allowedParties)
+        pure ()
+
+    choice RemoveParty : ContractId Whitelist
+      with
+        party : Party
+      controller admin
+      do
+        -- FIXED: O(log n) removal
+        create this with allowedParties = Set.delete party allowedParties

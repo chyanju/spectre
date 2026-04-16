@@ -1,0 +1,26 @@
+--- DOC-AUTH-02/buggy/FlexibleController.daml	2026-04-16 00:41:21.018197340 -0700
++++ DOC-AUTH-02/fixed/FlexibleController.daml	2026-04-16 00:41:28.286114443 -0700
+@@ -1,6 +1,5 @@
+--- DOC-AUTH-02 BUGGY: Flexible Controller Escalation
+--- A controller field can be updated by a lower-privileged party,
+--- allowing them to escalate privileges or hijack the contract.
++-- DOC-AUTH-02 FIXED: Proper Authorization on Controller Escalation
++-- Only the owner (the signatory) should be able to reassign the delegate.
+ 
+ module Synthetic.FlexibleController where
+ 
+@@ -13,12 +12,11 @@
+     signatory owner
+     observer delegate
+ 
+-    -- BUG: The delegate can change who the delegate is to ANY party,
+-    -- allowing them to transfer this delegation or potentially exploit it.
++    -- FIXED: Reassigning a delegate must be authorized by the owner
+     choice ReassignDelegate : ContractId DelegatedAction
+       with
+         newDelegate : Party
+-      controller delegate
++      controller owner
+       do
+         create this with delegate = newDelegate
+ 

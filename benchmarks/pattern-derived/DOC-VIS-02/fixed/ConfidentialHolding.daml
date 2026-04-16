@@ -1,0 +1,52 @@
+-- DOC-VIS-02 FIXED: Auditor sees only a summary contract, not full holding
+-- Sensitive fields (amount, counterparty) are hidden from the auditor.
+-- A separate AuditRecord contract provides limited disclosure.
+
+module Synthetic.ConfidentialHolding where
+
+template ConfidentialHolding
+  with
+    owner : Party
+    custodian : Party
+    auditor : Party
+    counterparty : Party
+    amount : Decimal
+    reference : Text
+  where
+    signatory custodian
+    -- FIXED: auditor removed from observer set
+    observer owner, counterparty
+
+    choice Transfer : (ContractId ConfidentialHolding, ContractId AuditRecord)
+      with
+        newOwner : Party
+      controller owner
+      do
+        holdingCid <- create this with owner = newOwner
+        -- FIXED: create limited-disclosure audit record for auditor
+        auditCid <- create AuditRecord with
+          custodian
+          auditor
+          reference
+          eventType = "Transfer"
+        pure (holdingCid, auditCid)
+
+    choice Settle : ContractId AuditRecord
+      controller custodian
+      do
+        create AuditRecord with
+          custodian
+          auditor
+          reference
+          eventType = "Settlement"
+
+-- Separate contract with minimal disclosure for auditor
+template AuditRecord
+  with
+    custodian : Party
+    auditor : Party
+    reference : Text
+    eventType : Text
+  where
+    signatory custodian
+    observer auditor

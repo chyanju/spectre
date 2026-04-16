@@ -1,0 +1,59 @@
+-- DOC-INTEG-03 FIXED: Check for existing key before creating
+-- The Mint choice uses lookupByKey to check if a token with the same
+-- key already exists, and either adds to its supply or creates new.
+
+module Synthetic.TokenRegistry where
+
+template Token
+  with
+    issuer : Party
+    symbol : Text
+    totalSupply : Decimal
+  where
+    signatory issuer
+
+    key (issuer, symbol) : (Party, Text)
+    maintainer key._1
+
+    choice Burn : ContractId Token
+      with
+        amount : Decimal
+      controller issuer
+      do
+        assertMsg "Burn amount exceeds supply" (totalSupply >= amount)
+        create this with totalSupply = totalSupply - amount
+
+    choice AddSupply : ContractId Token
+      with
+        amount : Decimal
+      controller issuer
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        create this with totalSupply = totalSupply + amount
+
+template TokenFactory
+  with
+    issuer : Party
+  where
+    signatory issuer
+
+    -- FIXED: check for existing token before creating
+    nonconsuming choice Mint : ContractId Token
+      with
+        symbol : Text
+        amount : Decimal
+      controller issuer
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        -- FIXED: lookup existing token by key first
+        existing <- lookupByKey @Token (issuer, symbol)
+        case existing of
+          Some tokenCid ->
+            -- Token exists: add to its supply
+            exercise tokenCid AddSupply with amount
+          None ->
+            -- No existing token: safe to create
+            create Token with
+              issuer
+              symbol
+              totalSupply = amount

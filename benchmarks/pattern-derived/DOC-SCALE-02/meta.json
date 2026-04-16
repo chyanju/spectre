@@ -1,0 +1,43 @@
+{
+  "id": "DOC-SCALE-02",
+  "title": "Unbounded map growth in singleton contract causes payload bloat",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Scalability Pattern - Singleton State Management",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "AccountLedger template",
+  "affected_modules": ["Synthetic.AccountBalances"],
+  "pattern_family": "scalability",
+  "pattern_name": "unbounded_map_growth",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A singleton AccountLedger contract stores all account balances in a DA.Map field. Every new account adds an entry, causing the contract payload to grow without bound. On Canton, large contract payloads increase serialization time, Merkle witness size, and can eventually exceed the maximum transaction size limit.",
+  "recommendation": "Replace the accumulating Map with per-entity child contracts. Each account should be a separate contract with a contract key for lookup, keeping the admin contract constant-size.",
+  "code_snippets": {
+    "buggy": "buggy/AccountBalances.daml",
+    "fixed": "fixed/AccountBalances.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "unbounded_growth",
+    "description": "Map/Set fields in singleton contracts must have bounded growth or be refactored to per-entity contracts.",
+    "static_signal": "DA.Map.insert in choice body with no size bound assertion; field used in singleton template pattern",
+    "symbolic_property": "forall n. after_n_operations(OpenAccount, n) => payload_size(AccountLedger) <= constant"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": ["scalability", "map-growth", "singleton", "payload-size", "canton-limit", "synthetic"],
+  "notes": "Variant of DOC-SCALE-01 (unbounded observer set) but targeting data fields instead of observer clauses. Both are common Canton scalability anti-patterns."
+}

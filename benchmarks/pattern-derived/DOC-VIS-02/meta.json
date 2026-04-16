@@ -1,0 +1,43 @@
+{
+  "id": "DOC-VIS-02",
+  "title": "Over-broad observer set exposes sensitive contract data to auditor",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Privacy Pattern - Minimal Disclosure Principle",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "ConfidentialHolding template",
+  "affected_modules": ["Synthetic.ConfidentialHolding"],
+  "pattern_family": "visibility",
+  "pattern_name": "overbroad_observer_set",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A ConfidentialHolding contract lists the auditor as a direct observer, granting the auditor full visibility into sensitive fields such as amount, counterparty, and reference. In DAML, observers see the entire contract payload. The auditor should only receive anonymized or summarized information via a separate contract with minimal fields.",
+  "recommendation": "Apply the minimal-disclosure principle: remove parties from the observer set who do not need full contract visibility. Create separate summary/audit contracts with only the fields that party needs to see.",
+  "code_snippets": {
+    "buggy": "buggy/ConfidentialHolding.daml",
+    "fixed": "fixed/ConfidentialHolding.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_observer",
+    "description": "Observer set should follow least-privilege: parties should only observe contracts whose full payload they need to see.",
+    "static_signal": "Party listed in observer clause that is not used as controller or signatory in any choice, and contract contains fields tagged as sensitive",
+    "symbolic_property": "forall p. observer(template, p) => exists c. controller(choice(template, c), p) || needs_full_payload(p)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": ["visibility", "privacy", "observer", "least-privilege", "disclosure", "synthetic"],
+  "notes": "DAML-specific pattern: observers see the entire contract payload, making over-broad observer sets a privacy risk."
+}

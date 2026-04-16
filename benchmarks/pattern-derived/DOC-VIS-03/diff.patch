@@ -1,0 +1,27 @@
+--- buggy/ProposalVote.daml	2026-04-16 00:24:26.356936829 -0700
++++ fixed/ProposalVote.daml	2026-04-16 00:24:29.176913014 -0700
+@@ -1,6 +1,5 @@
+--- DOC-VIS-03 BUGGY: Missing observer on downstream contract
+--- When a Proposal creates a VoteReceipt, the voter is not included as
+--- observer on the receipt, so the voter cannot see their own receipt.
++-- DOC-VIS-03 FIXED: Voter added as observer on VoteReceipt
++-- The voter can now see their own receipt after casting a vote.
+ 
+ module Synthetic.ProposalVote where
+ 
+@@ -21,8 +20,6 @@
+       do
+         assertMsg "Not an eligible voter" (voter `elem` voters)
+         newProposal <- create this with yesCount = yesCount + 1
+-        -- BUG: VoteReceipt only has proposer as signatory/observer.
+-        -- The voter who cast the vote cannot see their own receipt!
+         receipt <- create VoteReceipt with
+           proposer
+           title
+@@ -36,4 +33,5 @@
+     voter : Party
+   where
+     signatory proposer
+-    -- BUG: voter is not listed as observer; voter cannot fetch this receipt
++    -- FIXED: voter is now an observer and can see their receipt
++    observer voter

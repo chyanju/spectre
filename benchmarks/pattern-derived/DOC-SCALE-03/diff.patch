@@ -1,0 +1,55 @@
+--- buggy/Whitelist.daml	2026-04-16 00:26:02.139144038 -0700
++++ fixed/Whitelist.daml	2026-04-16 00:26:05.522116573 -0700
+@@ -1,16 +1,15 @@
+--- DOC-SCALE-03 BUGGY: Linear scan in hot path
+--- The Whitelist template uses list search (O(n)) to check membership
+--- instead of Set.member (O(log n)), causing performance degradation
+--- as the whitelist grows.
++-- DOC-SCALE-03 FIXED: Set-based membership for O(log n) lookup
++-- Uses DA.Set instead of list for efficient membership checks.
+ 
+ module Synthetic.Whitelist where
+ 
+-import DA.List (elem)
++import DA.Set as Set
+ 
+ template Whitelist
+   with
+     admin : Party
+-    allowedParties : [Party]  -- BUG: should be Set Party for O(log n) lookup
++    -- FIXED: Set Party for O(log n) membership checks
++    allowedParties : Set.Set Party
+   where
+     signatory admin
+ 
+@@ -19,17 +18,17 @@
+         party : Party
+       controller admin
+       do
+-        -- BUG: linear scan to check duplicates
+-        assertMsg "Already whitelisted" (notElem party allowedParties)
+-        create this with allowedParties = party :: allowedParties
++        -- FIXED: O(log n) membership check
++        assertMsg "Already whitelisted" (not (Set.member party allowedParties))
++        create this with allowedParties = Set.insert party allowedParties
+ 
+     choice CheckAndExecute : ()
+       with
+         caller : Party
+       controller caller
+       do
+-        -- BUG: O(n) membership check on every invocation
+-        assertMsg "Not whitelisted" (elem caller allowedParties)
++        -- FIXED: O(log n) membership check
++        assertMsg "Not whitelisted" (Set.member caller allowedParties)
+         pure ()
+ 
+     choice RemoveParty : ContractId Whitelist
+@@ -37,5 +36,5 @@
+         party : Party
+       controller admin
+       do
+-        -- BUG: O(n) filter on every removal
+-        create this with allowedParties = filter (/= party) allowedParties
++        -- FIXED: O(log n) removal
++        create this with allowedParties = Set.delete party allowedParties

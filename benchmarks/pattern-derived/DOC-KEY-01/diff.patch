@@ -1,0 +1,20 @@
+--- DOC-KEY-01/buggy/KeyMaintenance.daml	2026-04-16 00:40:38.941683179 -0700
++++ DOC-KEY-01/fixed/KeyMaintenance.daml	2026-04-16 00:41:03.598397229 -0700
+@@ -1,6 +1,5 @@
+--- DOC-KEY-01 BUGGY: Missing Key Maintenance in state transition
+--- An update choice recreates the contract but omits the key definition
+--- fields, changing the contract's identity.
++-- DOC-KEY-01 FIXED: Proper Key Maintenance
++-- Preserves the original contract key during state updates.
+ 
+ module Synthetic.KeyMaintenance where
+ 
+@@ -21,6 +20,5 @@
+         newStatus : Text
+       controller admin
+       do
+-        -- BUG: using `username = newStatus` instead of preserving the key
+-        -- and just updating status. The key is mutated by mistake.
+-        create this with username = newStatus, status = newStatus
++        -- FIXED: key fields (admin, username) remain unchanged
++        create this with status = newStatus

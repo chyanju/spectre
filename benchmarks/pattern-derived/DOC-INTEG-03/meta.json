@@ -1,0 +1,43 @@
+{
+  "id": "DOC-INTEG-03",
+  "title": "Contract key collision from missing lookupByKey before create",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Integration Pattern - Contract Key Uniqueness",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "TokenFactory.Mint choice",
+  "affected_modules": ["Synthetic.TokenRegistry"],
+  "pattern_family": "integration",
+  "pattern_name": "duplicate_key_creation",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "The TokenFactory's Mint choice creates a Token contract with a key (issuer, symbol) without first checking if a token with that key already exists. DAML enforces key uniqueness at runtime: if a duplicate key is created, the transaction aborts. This causes a confusing runtime error instead of a graceful handling of the 'already exists' case.",
+  "recommendation": "Always use lookupByKey before creating a keyed contract. If the key already exists, either update the existing contract or return a meaningful error.",
+  "code_snippets": {
+    "buggy": "buggy/TokenRegistry.daml",
+    "fixed": "fixed/TokenRegistry.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Before creating a keyed contract, verify no active contract with the same key exists.",
+    "static_signal": "create of keyed template without preceding lookupByKey/fetchByKey for the same key expression",
+    "symbolic_property": "forall k. creates_keyed(choice, k) => preceded_by(lookupByKey(k)) || preceded_by(fetchByKey(k))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["integration", "contract-key", "uniqueness", "lookupByKey", "runtime-abort", "synthetic"],
+  "notes": "Very common DAML developer mistake. Contract key uniqueness is enforced at runtime, making this a subtle correctness issue."
+}

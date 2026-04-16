@@ -1,0 +1,32 @@
+-- DOC-INTEG-02 FIXED: Transfer properly archives original holding
+-- The choice is now nonconsuming is removed in favor of the default
+-- consuming behavior, which archives the contract when exercised.
+-- This ensures conservation of value: old holding is consumed,
+-- new holding is created for the receiver.
+
+module Synthetic.TransferImpl where
+
+template Holding
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory issuer
+    observer owner
+
+    -- FIXED: This is a consuming choice (default in DAML).
+    -- Exercising Transfer archives this contract and creates a new one.
+    choice Transfer : ContractId Holding
+      with
+        receiver : Party
+      controller owner, issuer
+      do
+        assertMsg "Cannot transfer to self" (receiver /= owner)
+        assertMsg "Amount must be positive" (amount > 0.0)
+        -- FIXED: the original holding is automatically archived because
+        -- this is a consuming choice. Conservation of value is maintained.
+        create Holding with
+          issuer
+          owner = receiver
+          amount

@@ -1,0 +1,39 @@
+--- buggy/TransferImpl.daml	2026-04-16 00:26:54.264724151 -0700
++++ fixed/TransferImpl.daml	2026-04-16 00:26:58.966686599 -0700
+@@ -1,8 +1,8 @@
+--- DOC-INTEG-02 BUGGY: Interface postcondition gap
+--- The Transferable interface expects that after Transfer, the original
+--- holding is archived and a new one is created for the receiver.
+--- This implementation creates the new holding but forgets to archive
+--- the original, resulting in a double-spend condition.
++-- DOC-INTEG-02 FIXED: Transfer properly archives original holding
++-- The choice is now nonconsuming is removed in favor of the default
++-- consuming behavior, which archives the contract when exercised.
++-- This ensures conservation of value: old holding is consumed,
++-- new holding is created for the receiver.
+ 
+ module Synthetic.TransferImpl where
+ 
+@@ -15,9 +15,8 @@
+     signatory issuer
+     observer owner
+ 
+-    -- BUG: Transfer creates a new holding for receiver but does NOT
+-    -- archive the original holding. Both old and new holdings exist,
+-    -- violating the conservation-of-value postcondition.
++    -- FIXED: This is a consuming choice (default in DAML).
++    -- Exercising Transfer archives this contract and creates a new one.
+     choice Transfer : ContractId Holding
+       with
+         receiver : Party
+@@ -25,8 +24,8 @@
+       do
+         assertMsg "Cannot transfer to self" (receiver /= owner)
+         assertMsg "Amount must be positive" (amount > 0.0)
+-        -- BUG: missing `archive self` or implicit archive
+-        -- The original holding remains active alongside the new one
++        -- FIXED: the original holding is automatically archived because
++        -- this is a consuming choice. Conservation of value is maintained.
+         create Holding with
+           issuer
+           owner = receiver

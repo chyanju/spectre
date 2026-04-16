@@ -1,0 +1,16 @@
+module Synthetic.UnsafeDivision where
+
+template PriceCalculator
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CalculatePrice : Decimal
+      with 
+        quantity : Decimal
+        totalAmount : Decimal
+      controller admin
+      do
+        -- BUG: Missing zero check for quantity
+        return (totalAmount / quantity)

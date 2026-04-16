@@ -1,0 +1,41 @@
+-- DOC-REENT-01 FIXED: Properly thread ContractId through batch loop
+-- Each iteration uses the ContractId returned by the previous exercise,
+-- ensuring the loop always references the current (active) contract.
+
+module Synthetic.BatchProcessor where
+
+import DA.Action (foldlA)
+
+processStep : ContractId Counter -> Int -> Update (ContractId Counter)
+processStep cid d = exercise cid Increment with delta = d
+
+template Counter
+  with
+    admin : Party
+    value : Int
+  where
+    signatory admin
+
+    key admin : Party
+    maintainer key
+
+    choice Increment : ContractId Counter
+      with
+        delta : Int
+      controller admin
+      do
+        create this with value = value + delta
+
+template BatchJob
+  with
+    admin : Party
+    counterCid : ContractId Counter
+    deltas : [Int]
+  where
+    signatory admin
+
+    choice ProcessAll : ContractId Counter
+      controller admin
+      do
+        -- FIXED: thread the returned ContractId through each iteration
+        foldlA processStep counterCid deltas

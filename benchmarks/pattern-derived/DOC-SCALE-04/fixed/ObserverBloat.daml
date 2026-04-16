@@ -1,0 +1,22 @@
+module Synthetic.ObserverBloat where
+
+template GlobalRegistry
+  with
+    admin : Party
+  where
+    signatory admin
+
+    -- FIXED: Instead of growing the observer list, emit a role contract
+    choice AddUser : ContractId UserRole
+      with newUser : Party
+      controller admin
+      do 
+        create UserRole with admin = admin; user = newUser
+
+template UserRole
+  with
+    admin : Party
+    user : Party
+  where
+    signatory admin
+    observer user

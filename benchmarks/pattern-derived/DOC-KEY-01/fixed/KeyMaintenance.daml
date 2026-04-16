@@ -1,0 +1,24 @@
+-- DOC-KEY-01 FIXED: Proper Key Maintenance
+-- Preserves the original contract key during state updates.
+
+module Synthetic.KeyMaintenance where
+
+template UserProfile
+  with
+    admin : Party
+    username : Text
+    status : Text
+    score : Int
+  where
+    signatory admin
+
+    key (admin, username) : (Party, Text)
+    maintainer key._1
+
+    choice UpdateStatus : ContractId UserProfile
+      with
+        newStatus : Text
+      controller admin
+      do
+        -- FIXED: key fields (admin, username) remain unchanged
+        create this with status = newStatus

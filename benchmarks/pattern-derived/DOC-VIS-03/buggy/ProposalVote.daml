@@ -1,0 +1,39 @@
+-- DOC-VIS-03 BUGGY: Missing observer on downstream contract
+-- When a Proposal creates a VoteReceipt, the voter is not included as
+-- observer on the receipt, so the voter cannot see their own receipt.
+
+module Synthetic.ProposalVote where
+
+template Proposal
+  with
+    proposer : Party
+    title : Text
+    voters : [Party]
+    yesCount : Int
+  where
+    signatory proposer
+    observer voters
+
+    choice CastVote : (ContractId Proposal, ContractId VoteReceipt)
+      with
+        voter : Party
+      controller voter
+      do
+        assertMsg "Not an eligible voter" (voter `elem` voters)
+        newProposal <- create this with yesCount = yesCount + 1
+        -- BUG: VoteReceipt only has proposer as signatory/observer.
+        -- The voter who cast the vote cannot see their own receipt!
+        receipt <- create VoteReceipt with
+          proposer
+          title
+          voter
+        pure (newProposal, receipt)
+
+template VoteReceipt
+  with
+    proposer : Party
+    title : Text
+    voter : Party
+  where
+    signatory proposer
+    -- BUG: voter is not listed as observer; voter cannot fetch this receipt

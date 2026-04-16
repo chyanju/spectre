@@ -69,7 +69,7 @@ Every case has a `meta.json` conforming to `schema.json`. Key fields:
 - Daml SDK release notes (digital-asset/daml)
 
 ### Pattern-Derived (Phase 3)
-- Synthetic code pairs constructed from Daml documentation and best practice guides.
+- Synthetic code pairs constructed from Daml documentation and best practice guides. Currently contains **22 cases** covering all 9 pattern families, filling gaps in visibility, scalability, integration, and numeric precision loss.
 
 ## Usage
 

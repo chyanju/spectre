@@ -1,0 +1,43 @@
+{
+  "id": "DOC-VIS-04",
+  "title": "Divulgence of confidential contract via nested exercise",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Privacy Pattern - Divulgence Through Nested Exercise",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "DelegationRequest.ExecutePayment choice",
+  "affected_modules": ["Synthetic.DelegatedPayment"],
+  "pattern_family": "visibility",
+  "pattern_name": "divulgence_via_nested_exercise",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A DelegationRequest choice exercises a Debit choice on a ConfidentialAccount. Because the requester is a signatory of the DelegationRequest, and the Debit exercise is nested within that choice's transaction tree, DAML's divulgence rules reveal the ConfidentialAccount's full state (including balance) to the requester. The requester was never an observer on the ConfidentialAccount.",
+  "recommendation": "Avoid nested exercises on confidential contracts within choices where untrusted parties are signatories. Use indirection: create an intermediary instruction contract that the privileged party processes separately, breaking the transaction tree.",
+  "code_snippets": {
+    "buggy": "buggy/DelegatedPayment.daml",
+    "fixed": "fixed/DelegatedPayment.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Nested exercise within a multi-signatory choice can divulge inner contract data to all signatories of the outer contract.",
+    "static_signal": "Choice body exercises another contract where outer contract signatories are not observers on the inner contract",
+    "symbolic_property": "forall outer inner. nested_exercise(outer, inner) && signatory(outer, p) && not(stakeholder(inner, p)) => divulgence_risk(inner, p)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["visibility", "divulgence", "privacy", "nested-exercise", "transaction-tree", "synthetic"],
+  "notes": "DAML-specific: divulgence is a well-documented DAML privacy mechanism where contract data is revealed to parties in the transaction tree. This is a subtle and hard-to-detect issue."
+}

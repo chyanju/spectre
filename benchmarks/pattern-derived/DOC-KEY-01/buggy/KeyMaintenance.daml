@@ -1,0 +1,26 @@
+-- DOC-KEY-01 BUGGY: Missing Key Maintenance in state transition
+-- An update choice recreates the contract but omits the key definition
+-- fields, changing the contract's identity.
+
+module Synthetic.KeyMaintenance where
+
+template UserProfile
+  with
+    admin : Party
+    username : Text
+    status : Text
+    score : Int
+  where
+    signatory admin
+
+    key (admin, username) : (Party, Text)
+    maintainer key._1
+
+    choice UpdateStatus : ContractId UserProfile
+      with
+        newStatus : Text
+      controller admin
+      do
+        -- BUG: using `username = newStatus` instead of preserving the key
+        -- and just updating status. The key is mutated by mistake.
+        create this with username = newStatus, status = newStatus

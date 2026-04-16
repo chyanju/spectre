@@ -1,0 +1,43 @@
+{
+  "id": "DOC-FETCH-01",
+  "title": "Stale ContractId reference causes unrecoverable runtime abort",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Lifecycle Pattern - Contract Reference Management",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "Settlement.Execute choice",
+  "affected_modules": ["Synthetic.LinkedSettlement"],
+  "pattern_family": "lifecycle",
+  "pattern_name": "stale_contract_reference",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A Settlement contract stores a raw ContractId to an Obligation. If the Obligation is archived (e.g. cancelled) between the Settlement's creation and execution, the fetch will fail with a runtime error, aborting the entire transaction. The error message provides no context about what went wrong.",
+  "recommendation": "For contracts that may be independently archived, use contract key lookups (lookupByKey/fetchByKey) at execution time instead of storing raw ContractIds. Handle the None/missing case gracefully.",
+  "code_snippets": {
+    "buggy": "buggy/LinkedSettlement.daml",
+    "fixed": "fixed/LinkedSettlement.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Fetch of stored ContractId should handle the case where the referenced contract has been archived.",
+    "static_signal": "Template field of type ContractId used in fetch without preceding existence check; referenced template has consuming choices exercisable by other parties",
+    "symbolic_property": "forall s o. field(s, obligationCid) == cid && archived(cid) => not(aborts(Execute, s))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["lifecycle", "stale-reference", "contractid", "fetch", "archived", "runtime-abort", "synthetic"],
+  "notes": "Very common DAML anti-pattern. ContractIds are ephemeral references; contracts may be archived at any time by their signatories."
+}

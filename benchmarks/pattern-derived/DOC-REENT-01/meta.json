@@ -1,0 +1,43 @@
+{
+  "id": "DOC-REENT-01",
+  "title": "Stale ContractId reuse in iterative batch processing loop",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Lifecycle Pattern - ContractId Threading in Loops",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "BatchJob.ProcessAll choice",
+  "affected_modules": ["Synthetic.BatchProcessor"],
+  "pattern_family": "lifecycle",
+  "pattern_name": "stale_cid_in_loop",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A batch processing choice iterates over a list of deltas, exercising an Increment choice on a Counter contract in each iteration. The bug is that the loop always exercises the original ContractId instead of using the new ContractId returned by each exercise. Since DAML choices are consuming by default, the original contract is archived after the first exercise, and all subsequent exercises fail.",
+  "recommendation": "When exercising consuming choices in a loop, always thread the returned ContractId through the accumulator. Use foldlA or explicit recursion with the new ContractId as the accumulator parameter.",
+  "code_snippets": {
+    "buggy": "buggy/BatchProcessor.daml",
+    "fixed": "fixed/BatchProcessor.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "state_inconsistency",
+    "description": "In a loop that exercises consuming choices, the ContractId used in each iteration must be the result of the previous iteration, not a captured outer variable.",
+    "static_signal": "Consuming exercise inside loop body uses a ContractId from outer scope instead of the loop accumulator variable",
+    "symbolic_property": "forall loop cid. exercises_consuming(loop, cid) && in_iteration(loop, i) && i > 0 => cid == result_of(iteration(loop, i-1))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["lifecycle", "stale-reference", "loop", "consuming-choice", "contractid-threading", "synthetic"],
+  "notes": "DAML-specific pattern: the UTXO-like consumption model means ContractIds become invalid after exercise. This is the DAML equivalent of reentrancy state issues in EVM."
+}

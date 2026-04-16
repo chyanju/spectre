@@ -1,0 +1,43 @@
+{
+  "id": "DOC-VIS-03",
+  "title": "Missing observer on downstream contract prevents party access",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Visibility Pattern - Downstream Contract Observer Propagation",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "VoteReceipt template",
+  "affected_modules": ["Synthetic.ProposalVote"],
+  "pattern_family": "visibility",
+  "pattern_name": "missing_downstream_observer",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "When a Proposal creates a VoteReceipt in the CastVote choice, the voter is not listed as observer on the VoteReceipt. Even though the voter initiated the action and the receipt contains their party identifier, they cannot see or fetch the receipt through the ledger API.",
+  "recommendation": "When a choice creates a contract intended for a specific party, always include that party in the observer (or signatory) clause of the new contract.",
+  "code_snippets": {
+    "buggy": "buggy/ProposalVote.daml",
+    "fixed": "fixed/ProposalVote.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_observer",
+    "description": "A contract created within a choice should include the acting party as observer if the contract is semantically intended for them.",
+    "static_signal": "Choice creates contract where the controller/actor party appears in a field but is not in the observer clause of the created template",
+    "symbolic_property": "forall r. created_by_choice(r, CastVote) && field(r, voter) == actor => observer(r, actor)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["visibility", "observer", "downstream-contract", "receipt-pattern", "synthetic"],
+  "notes": "Very common pattern in DAML applications: creating 'receipt' or 'confirmation' contracts that the acting party cannot see."
+}

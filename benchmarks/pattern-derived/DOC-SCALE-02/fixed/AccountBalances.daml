@@ -1,0 +1,51 @@
+-- DOC-SCALE-02 FIXED: Per-account contracts instead of unbounded map
+-- Each account is a separate contract, keeping the ledger admin contract
+-- constant-size regardless of the number of accounts.
+
+module Synthetic.AccountBalances where
+
+template AccountLedger
+  with
+    bank : Party
+    accountCount : Int
+  where
+    signatory bank
+
+    -- FIXED: creates a separate Account contract instead of growing the map
+    choice OpenAccount : (ContractId AccountLedger, ContractId Account)
+      with
+        accountHolder : Party
+        accountId : Text
+        initialDeposit : Decimal
+      controller bank
+      do
+        assertMsg "Deposit must be positive" (initialDeposit > 0.0)
+        acctCid <- create Account with
+          bank
+          accountHolder
+          accountId
+          balance = initialDeposit
+        ledgerCid <- create this with accountCount = accountCount + 1
+        pure (ledgerCid, acctCid)
+
+-- FIXED: individual account contract; constant-size per account
+template Account
+  with
+    bank : Party
+    accountHolder : Party
+    accountId : Text
+    balance : Decimal
+  where
+    signatory bank
+    observer accountHolder
+
+    key (bank, accountId) : (Party, Text)
+    maintainer key._1
+
+    choice Credit : ContractId Account
+      with
+        amount : Decimal
+      controller bank
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        create this with balance = balance + amount

@@ -1,0 +1,43 @@
+{
+  "id": "DOC-NUMERIC-01",
+  "title": "Decimal precision loss from divide-before-multiply in fee calculation",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Numeric Pattern - Arithmetic Operation Ordering",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "FeeSchedule.ApplyFee choice",
+  "affected_modules": ["Synthetic.FeeCalculation"],
+  "pattern_family": "invariant",
+  "pattern_name": "precision_loss_division_first",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "The fee calculation divides the transaction amount first, then multiplies by the rate. DAML's Decimal type (Numeric 10) truncates at 10 decimal places. When dividing first, the intermediate result loses precision, causing the final fee to be lower than expected. Over many transactions, the accumulated error can be material.",
+  "recommendation": "Always multiply before dividing in financial calculations to preserve intermediate precision. The expression (amount * rate) / divisor retains more decimal places than (amount / divisor) * rate.",
+  "code_snippets": {
+    "buggy": "buggy/FeeCalculation.daml",
+    "fixed": "fixed/FeeCalculation.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "assertion_violation",
+    "description": "Financial arithmetic should preserve maximum precision by multiplying before dividing.",
+    "static_signal": "Division operator (/) appears before multiplication (*) in same arithmetic expression involving Decimal/Numeric types",
+    "symbolic_property": "forall a r. fee_buggy(a, r) <= fee_correct(a, r) && exists a r. fee_buggy(a, r) < fee_correct(a, r)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["invariant", "numeric", "precision", "financial", "truncation", "decimal", "synthetic"],
+  "notes": "Classic financial computing bug. Analogous to Solidity's integer division truncation (SWC-101). Particularly relevant for stablecoin contracts like USD1."
+}

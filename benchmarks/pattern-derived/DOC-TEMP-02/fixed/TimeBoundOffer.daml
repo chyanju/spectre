@@ -1,0 +1,23 @@
+-- DOC-TEMP-02 FIXED: Time Bound explicitly enforced
+-- A time-sensitive action (ClaimOffer) checks the expiration time using `getTime`.
+
+module Synthetic.TimeBoundOffer where
+
+template SpecialOffer
+  with
+    merchant : Party
+    customer : Party
+    item : Text
+    discount : Int
+    expiresAt : Time
+  where
+    signatory merchant
+    observer customer
+
+    -- FIXED: The offer cannot be claimed after the expiration time.
+    choice ClaimOffer : ()
+      controller customer
+      do
+        now <- getTime
+        assertMsg "Offer has expired" (now <= expiresAt)
+        pure ()

@@ -200,6 +200,7 @@ pInfixOp = choice
   , symbol "&&"
   , symbol "||"
   , symbol "<>"
+  , symbol "::"
   , symbol "++"
   , symbol "<$>"
   , symbol "<*>"

@@ -1,0 +1,22 @@
+-- DOC-TEMP-02 BUGGY: Missing Time Bound on Choice
+-- A time-sensitive action (ClaimOffer) does not check the expiration time.
+
+module Synthetic.TimeBoundOffer where
+
+template SpecialOffer
+  with
+    merchant : Party
+    customer : Party
+    item : Text
+    discount : Int
+    expiresAt : Time
+  where
+    signatory merchant
+    observer customer
+
+    -- BUG: The customer can claim the offer at any time, even after expiresAt
+    choice ClaimOffer : ()
+      controller customer
+      do
+        -- No time bound check. Customer can exploit expired offer.
+        pure ()

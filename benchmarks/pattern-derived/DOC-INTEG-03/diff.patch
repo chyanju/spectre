@@ -1,0 +1,58 @@
+--- buggy/TokenRegistry.daml	2026-04-16 00:27:04.923639098 -0700
++++ fixed/TokenRegistry.daml	2026-04-16 00:27:10.129597659 -0700
+@@ -1,7 +1,6 @@
+--- DOC-INTEG-03 BUGGY: Key uniqueness violation via duplicate creation
+--- The TokenFactory creates Token contracts keyed by (issuer, symbol).
+--- The Mint choice does not check whether a token with the same key
+--- already exists, causing a runtime key collision error.
++-- DOC-INTEG-03 FIXED: Check for existing key before creating
++-- The Mint choice uses lookupByKey to check if a token with the same
++-- key already exists, and either adds to its supply or creates new.
+ 
+ module Synthetic.TokenRegistry where
+ 
+@@ -24,12 +23,21 @@
+         assertMsg "Burn amount exceeds supply" (totalSupply >= amount)
+         create this with totalSupply = totalSupply - amount
+ 
++    choice AddSupply : ContractId Token
++      with
++        amount : Decimal
++      controller issuer
++      do
++        assertMsg "Amount must be positive" (amount > 0.0)
++        create this with totalSupply = totalSupply + amount
++
+ template TokenFactory
+   with
+     issuer : Party
+   where
+     signatory issuer
+ 
++    -- FIXED: check for existing token before creating
+     nonconsuming choice Mint : ContractId Token
+       with
+         symbol : Text
+@@ -37,10 +45,15 @@
+       controller issuer
+       do
+         assertMsg "Amount must be positive" (amount > 0.0)
+-        -- BUG: no check for existing token with same key.
+-        -- If a Token with (issuer, symbol) already exists,
+-        -- this will fail at runtime with a duplicate key error.
+-        create Token with
+-          issuer
+-          symbol
+-          totalSupply = amount
++        -- FIXED: lookup existing token by key first
++        existing <- lookupByKey @Token (issuer, symbol)
++        case existing of
++          Some tokenCid ->
++            -- Token exists: add to its supply
++            exercise tokenCid AddSupply with amount
++          None ->
++            -- No existing token: safe to create
++            create Token with
++              issuer
++              symbol
++              totalSupply = amount

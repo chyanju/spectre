@@ -1,0 +1,38 @@
+-- DOC-NUMERIC-01 BUGGY: Decimal precision loss in fee calculation
+-- The fee is calculated by dividing first, then multiplying,
+-- causing truncation of intermediate results and loss of precision.
+-- For large transaction amounts, this can result in material fee loss.
+
+module Synthetic.FeeCalculation where
+
+template FeeSchedule
+  with
+    admin : Party
+    feeRateBps : Int      -- fee rate in basis points (e.g. 30 = 0.30%)
+    collectedFees : Decimal
+  where
+    signatory admin
+
+    choice ApplyFee : (ContractId FeeSchedule, Decimal)
+      with
+        transactionAmount : Decimal
+      controller admin
+      do
+        assertMsg "Amount must be positive" (transactionAmount > 0.0)
+        -- BUG: dividing first truncates the intermediate result.
+        -- For feeRateBps=30, amount=1000.001:
+        --   (1000.001 / 10000.0) * 30.0 = 0.1 * 30.0 = 3.0
+        -- Correct:
+        --   (1000.001 * 30.0) / 10000.0 = 30000.03 / 10000.0 = 3.000003
+        let fee = (transactionAmount / 10000.0) * intToDecimal feeRateBps
+        let netAmount = transactionAmount - fee
+        newSchedule <- create this with collectedFees = collectedFees + fee
+        pure (newSchedule, netAmount)
+
+    choice WithdrawFees : ContractId FeeSchedule
+      with
+        recipient : Party
+      controller admin
+      do
+        assertMsg "No fees to withdraw" (collectedFees > 0.0)
+        create this with collectedFees = 0.0

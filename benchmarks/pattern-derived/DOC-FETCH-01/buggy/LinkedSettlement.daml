@@ -1,0 +1,42 @@
+-- DOC-FETCH-01 BUGGY: Stale ContractId reference causes runtime abort
+-- The Settlement template stores a ContractId to an Obligation contract.
+-- If the Obligation is archived (e.g. cancelled) before settlement,
+-- the fetch will fail with a runtime error.
+
+module Synthetic.LinkedSettlement where
+
+template Obligation
+  with
+    debtor : Party
+    creditor : Party
+    amount : Decimal
+  where
+    signatory debtor
+    observer creditor
+
+    key (debtor, creditor) : (Party, Party)
+    maintainer key._1
+
+    choice Cancel : ()
+      controller debtor
+      do pure ()
+
+template Settlement
+  with
+    operator : Party
+    debtor : Party
+    creditor : Party
+    obligationCid : ContractId Obligation  -- BUG: stores raw ContractId
+  where
+    signatory operator
+    observer debtor, creditor
+
+    choice Execute : ()
+      controller operator
+      do
+        -- BUG: if Obligation was archived (cancelled), this fetch aborts
+        -- the entire transaction with an uninformative runtime error.
+        obligation <- fetch obligationCid
+        assertMsg "Amount mismatch" (obligation.amount > 0.0)
+        archive obligationCid
+        pure ()

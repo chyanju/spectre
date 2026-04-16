@@ -1,0 +1,51 @@
+{
+  "id": "DOC-INV-02",
+  "title": "Unsafe division without zero-check",
+  "artifact_type": "synthetic",
+  "source_kind": "documentation",
+  "source_title": "DAML Invariant Pattern - Unsafe Decimal Division",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "CalculatePrice / Division",
+  "pattern_family": "invariant",
+  "pattern_name": "unsafe_division",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": true,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.UnsafeDivision"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "Division operation where the denominator is a variable not validated against zero. In DAML, division by zero results in a transaction abort, which can be exploited for Denial of Service if the denominator is user-controllable.",
+  "recommendation": "Add an assertion to ensure the denominator is not zero before performing the division.",
+  "code_snippets": {
+    "buggy": "buggy/UnsafeDivision.daml",
+    "fixed": "fixed/UnsafeDivision.daml",
+    "diff": null
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Denominator in division must be validated against zero.",
+    "static_signal": "Infix operator `/` used with a variable denominator that is not guarded by an assertion.",
+    "symbolic_property": "forall d: d != 0.0"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "invariant",
+    "math",
+    "division",
+    "dos",
+    "synthetic"
+  ],
+  "notes": "Numeric precision and division issues are common in financial DAML contracts."
+}

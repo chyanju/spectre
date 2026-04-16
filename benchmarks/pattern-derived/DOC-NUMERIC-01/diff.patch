@@ -1,0 +1,29 @@
+--- buggy/FeeCalculation.daml	2026-04-16 00:27:59.800205017 -0700
++++ fixed/FeeCalculation.daml	2026-04-16 00:28:03.481176103 -0700
+@@ -1,7 +1,6 @@
+--- DOC-NUMERIC-01 BUGGY: Decimal precision loss in fee calculation
+--- The fee is calculated by dividing first, then multiplying,
+--- causing truncation of intermediate results and loss of precision.
+--- For large transaction amounts, this can result in material fee loss.
++-- DOC-NUMERIC-01 FIXED: Multiply before divide to preserve precision
++-- By reordering operations, the intermediate result retains full
++-- precision before the final division.
+ 
+ module Synthetic.FeeCalculation where
+ 
+@@ -19,12 +18,9 @@
+       controller admin
+       do
+         assertMsg "Amount must be positive" (transactionAmount > 0.0)
+-        -- BUG: dividing first truncates the intermediate result.
+-        -- For feeRateBps=30, amount=1000.001:
+-        --   (1000.001 / 10000.0) * 30.0 = 0.1 * 30.0 = 3.0
+-        -- Correct:
+-        --   (1000.001 * 30.0) / 10000.0 = 30000.03 / 10000.0 = 3.000003
+-        let fee = (transactionAmount / 10000.0) * intToDecimal feeRateBps
++        -- FIXED: multiply first, then divide, to preserve precision.
++        -- (1000.001 * 30.0) / 10000.0 = 30000.03 / 10000.0 = 3.000003
++        let fee = (transactionAmount * intToDecimal feeRateBps) / 10000.0
+         let netAmount = transactionAmount - fee
+         newSchedule <- create this with collectedFees = collectedFees + fee
+         pure (newSchedule, netAmount)

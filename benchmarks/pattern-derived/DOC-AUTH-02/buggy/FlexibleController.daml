@@ -1,0 +1,27 @@
+-- DOC-AUTH-02 BUGGY: Flexible Controller Escalation
+-- A controller field can be updated by a lower-privileged party,
+-- allowing them to escalate privileges or hijack the contract.
+
+module Synthetic.FlexibleController where
+
+template DelegatedAction
+  with
+    owner : Party
+    delegate : Party
+    actionData : Text
+  where
+    signatory owner
+    observer delegate
+
+    -- BUG: The delegate can change who the delegate is to ANY party,
+    -- allowing them to transfer this delegation or potentially exploit it.
+    choice ReassignDelegate : ContractId DelegatedAction
+      with
+        newDelegate : Party
+      controller delegate
+      do
+        create this with delegate = newDelegate
+
+    choice ExecuteAction : ()
+      controller delegate
+      do pure ()

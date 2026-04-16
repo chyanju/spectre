@@ -1,0 +1,33 @@
+-- DOC-INTEG-02 BUGGY: Interface postcondition gap
+-- The Transferable interface expects that after Transfer, the original
+-- holding is archived and a new one is created for the receiver.
+-- This implementation creates the new holding but forgets to archive
+-- the original, resulting in a double-spend condition.
+
+module Synthetic.TransferImpl where
+
+template Holding
+  with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory issuer
+    observer owner
+
+    -- BUG: Transfer creates a new holding for receiver but does NOT
+    -- archive the original holding. Both old and new holdings exist,
+    -- violating the conservation-of-value postcondition.
+    choice Transfer : ContractId Holding
+      with
+        receiver : Party
+      controller owner, issuer
+      do
+        assertMsg "Cannot transfer to self" (receiver /= owner)
+        assertMsg "Amount must be positive" (amount > 0.0)
+        -- BUG: missing `archive self` or implicit archive
+        -- The original holding remains active alongside the new one
+        create Holding with
+          issuer
+          owner = receiver
+          amount

@@ -1,0 +1,62 @@
+-- DOC-VIS-04 FIXED: Avoid divulgence by using indirection
+-- Instead of directly exercising the confidential contract within the
+-- delegated choice, the bank processes the payment in a separate step
+-- using a PaymentInstruction intermediary.
+
+module Synthetic.DelegatedPayment where
+
+template ConfidentialAccount
+  with
+    bank : Party
+    accountHolder : Party
+    balance : Decimal
+  where
+    signatory bank
+    observer accountHolder
+
+    choice Debit : ContractId ConfidentialAccount
+      with
+        amount : Decimal
+      controller bank
+      do
+        assertMsg "Insufficient funds" (balance >= amount)
+        create this with balance = balance - amount
+
+-- FIXED: DelegationRequest no longer directly exercises ConfidentialAccount.
+-- Instead it creates a PaymentInstruction that the bank processes separately.
+template DelegationRequest
+  with
+    bank : Party
+    requester : Party
+    paymentAmount : Decimal
+  where
+    signatory bank, requester
+
+    choice ApprovePayment : ContractId PaymentInstruction
+      controller bank
+      do
+        -- FIXED: create instruction instead of directly exercising the
+        -- confidential contract; no divulgence to requester
+        create PaymentInstruction with
+          bank
+          amount = paymentAmount
+          requester
+
+-- Intermediary processed by bank alone; requester never sees account state
+template PaymentInstruction
+  with
+    bank : Party
+    amount : Decimal
+    requester : Party
+  where
+    signatory bank
+    observer requester
+
+    choice Process : ContractId ConfidentialAccount
+      with
+        accountCid : ContractId ConfidentialAccount
+      controller bank
+      do
+        -- Only bank exercises this; requester is observer on PaymentInstruction
+        -- but NOT a party to this nested exercise, so no divulgence occurs.
+        exercise accountCid Debit with amount

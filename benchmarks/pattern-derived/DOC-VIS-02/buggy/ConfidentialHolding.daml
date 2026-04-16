@@ -1,0 +1,33 @@
+-- DOC-VIS-02 BUGGY: Over-broad observer set exposes sensitive data
+-- The auditor is added as observer to the full holding contract,
+-- gaining visibility into amount, counterparty, and other sensitive fields.
+
+module Synthetic.ConfidentialHolding where
+
+template ConfidentialHolding
+  with
+    owner : Party
+    custodian : Party
+    auditor : Party
+    counterparty : Party
+    amount : Decimal
+    reference : Text
+  where
+    signatory custodian
+    -- BUG: auditor sees all fields (amount, counterparty, reference)
+    observer owner, auditor, counterparty
+
+    choice Transfer : ContractId ConfidentialHolding
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+
+    choice Settle : ()
+      controller custodian
+      do
+        pure ()
+
+-- Auditor should only see anonymized summaries, not full holding details.
+-- The current design leaks counterparty identity and exact amounts to the auditor.

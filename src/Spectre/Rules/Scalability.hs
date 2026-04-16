@@ -17,6 +17,7 @@ scalabilityRules =
   [ unboundedCollectionGrowth
   , eventAsContractBloat
   , unboundedIterationCreate
+  , observerSetBloat
   ]
 
 -- | SPEC-SCALE-001: Unbounded collection growth
@@ -83,7 +84,7 @@ exprGrowsField name expr = case expr of
     | v == name -> True
   EInfix "++" _ (EVar v _) _
     | v == name -> True
-  EInfix ":" _ (EVar v _) _
+  EInfix "::" _ (EVar v _) _
     | v == name -> True
   -- Record constructor with field = ... insert/cons
   ERecordCon _ fields _ ->
@@ -127,7 +128,7 @@ isInsertExpr (EApp f _ _) = isInsertExpr f
 isInsertExpr _ = False
 
 isConsExpr :: Expr -> Bool
-isConsExpr (EInfix ":" _ _ _) = True
+isConsExpr (EInfix "::" _ _ _) = True
 isConsExpr (EInfix "++" _ _ _) = True
 isConsExpr _ = False
 
@@ -314,3 +315,44 @@ extractBoundsVars _ = []
 
 isLengthFunc :: Text -> Bool
 isLengthFunc f = f `elem` ["length", "List.length", "DA.List.length", "List.size", "Set.size"]
+
+
+-- | SPEC-SCALE-004: Observer set bloat
+--
+-- A template field of type `[Party]` is directly used as an observer
+-- and continuously appended to via a choice. Canton transactions will
+-- broadcast the contract to all observers, causing severe performance
+-- and privacy degradation over time.
+observerSetBloat :: Inspection
+observerSetBloat = mkInspection
+  "SPEC-SCALE-004"
+  "Observer set bloat"
+  "A template field of type `[Party]` is used as an observer and continuously appended to via a choice, causing performance/privacy degradation."
+  Warning
+  [Scalability]
+  $ \mod_ ->
+    [ mkFinding (InspectionId "SPEC-SCALE-004") Warning (tplLocation tpl)
+        ("Template '" <> tplName tpl <> "': list field '" <> fieldName f
+         <> "' is used in the observer clause and grows via choice '" <> chName ch <> "'")
+        (Just "Use separate role contracts instead of a growing list of observers")
+        (Just (tplName tpl))
+        (Just (chName ch))
+    | DTemplate tpl <- moduleDecls mod_
+    , f <- tplFields tpl
+    , isListType (fieldType f)
+    , fieldIsObserver (fieldName f) (tplObserver tpl)
+    , ch <- tplChoices tpl
+    , stmtGrowsField (fieldName f) `any` chBody ch
+    ]
+
+isListType :: Maybe Type -> Bool
+isListType (Just (TList _ _)) = True
+isListType _ = False
+
+fieldIsObserver :: Text -> [PartyExpr] -> Bool
+fieldIsObserver name = any (isObserver name)
+  where
+    isObserver n (PEVar v _) = n == v
+    isObserver n (PEField _ f _) = n == f
+    isObserver n (PEList ps _) = any (isObserver n) ps
+    isObserver _ _ = False

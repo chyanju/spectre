@@ -1,0 +1,25 @@
+-- DOC-AUTH-02 FIXED: Proper Authorization on Controller Escalation
+-- Only the owner (the signatory) should be able to reassign the delegate.
+
+module Synthetic.FlexibleController where
+
+template DelegatedAction
+  with
+    owner : Party
+    delegate : Party
+    actionData : Text
+  where
+    signatory owner
+    observer delegate
+
+    -- FIXED: Reassigning a delegate must be authorized by the owner
+    choice ReassignDelegate : ContractId DelegatedAction
+      with
+        newDelegate : Party
+      controller owner
+      do
+        create this with delegate = newDelegate
+
+    choice ExecuteAction : ()
+      controller delegate
+      do pure ()

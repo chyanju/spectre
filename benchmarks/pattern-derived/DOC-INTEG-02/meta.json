@@ -1,0 +1,43 @@
+{
+  "id": "DOC-INTEG-02",
+  "title": "Nonconsuming transfer violates conservation-of-value postcondition",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Integration Pattern - Interface Postcondition Compliance",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "Holding.Transfer choice",
+  "affected_modules": ["Synthetic.TransferImpl"],
+  "pattern_family": "integration",
+  "pattern_name": "nonconsuming_transfer",
+  "severity": "critical",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A Holding template's Transfer choice creates a new holding for the receiver but fails to archive the original holding. If the choice is accidentally marked nonconsuming (or uses create without proper self-consumption), both the old and new holdings coexist, violating the conservation-of-value invariant and enabling double-spend.",
+  "recommendation": "Ensure transfer choices are consuming (the DAML default). If a nonconsuming choice pattern is used, explicitly archive the current contract in the choice body before creating the replacement.",
+  "code_snippets": {
+    "buggy": "buggy/TransferImpl.daml",
+    "fixed": "fixed/TransferImpl.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "spec_nonconformance",
+    "description": "Transfer operations must archive the source and create the destination, maintaining conservation of value.",
+    "static_signal": "Transfer-like choice that creates new contract without consuming or archiving the source contract",
+    "symbolic_property": "forall h. pre(active(h)) && executes(Transfer, h) => post(not(active(h))) && exists h'. active(h') && h'.amount == h.amount"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["integration", "conservation-of-value", "double-spend", "nonconsuming", "postcondition", "synthetic"],
+  "notes": "Double-spend via nonconsuming transfer is the DAML equivalent of EVM's token duplication bug. Critically important for financial contracts."
+}

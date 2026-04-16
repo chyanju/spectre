@@ -1,0 +1,41 @@
+-- DOC-SCALE-03 BUGGY: Linear scan in hot path
+-- The Whitelist template uses list search (O(n)) to check membership
+-- instead of Set.member (O(log n)), causing performance degradation
+-- as the whitelist grows.
+
+module Synthetic.Whitelist where
+
+import DA.List (elem)
+
+template Whitelist
+  with
+    admin : Party
+    allowedParties : [Party]  -- BUG: should be Set Party for O(log n) lookup
+  where
+    signatory admin
+
+    choice AddParty : ContractId Whitelist
+      with
+        party : Party
+      controller admin
+      do
+        -- BUG: linear scan to check duplicates
+        assertMsg "Already whitelisted" (notElem party allowedParties)
+        create this with allowedParties = party :: allowedParties
+
+    choice CheckAndExecute : ()
+      with
+        caller : Party
+      controller caller
+      do
+        -- BUG: O(n) membership check on every invocation
+        assertMsg "Not whitelisted" (elem caller allowedParties)
+        pure ()
+
+    choice RemoveParty : ContractId Whitelist
+      with
+        party : Party
+      controller admin
+      do
+        -- BUG: O(n) filter on every removal
+        create this with allowedParties = filter (/= party) allowedParties

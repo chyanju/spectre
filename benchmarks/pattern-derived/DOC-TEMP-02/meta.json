@@ -1,0 +1,43 @@
+{
+  "id": "DOC-TEMP-02",
+  "title": "Missing Time Bound on Time-Sensitive Choice",
+  "artifact_type": "pattern_example",
+  "source_kind": "documentation",
+  "source_title": "DAML Temporal Pattern - Missing Expiration Verification",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "SpecialOffer.ClaimOffer choice",
+  "affected_modules": ["Synthetic.TimeBoundOffer"],
+  "pattern_family": "temporal",
+  "pattern_name": "missing_time_bound",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "An offer with an explicit expiration timestamp lacks a `getTime` assertion when it is claimed. Thus, the offer is valid indefinitely.",
+  "recommendation": "Use `getTime` inside choices that are subject to an explicit time window.",
+  "code_snippets": {
+    "buggy": "buggy/TimeBoundOffer.daml",
+    "fixed": "fixed/TimeBoundOffer.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "assertion_violation",
+    "description": "Time-bounded contracts must assert `getTime` against their deadline.",
+    "static_signal": "A time field on the contract is never compared to `getTime` in an `assertMsg` or `ensure` clause during a choice.",
+    "symbolic_property": "forall t c. executes(ClaimOffer, c) => time(t) <= c.expiresAt"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["temporal", "deadline", "synthetic"],
+  "notes": ""
+}

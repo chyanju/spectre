@@ -1,0 +1,16 @@
+module Synthetic.ObserverBloat where
+
+template GlobalRegistry
+  with
+    admin : Party
+    users : [Party]
+  where
+    signatory admin
+    observer users  -- BUG: Growing list of observers
+
+    choice AddUser : ContractId GlobalRegistry
+      with newUser : Party
+      controller admin
+      do 
+        -- BUG: Continuously appending to an observer field
+        create this with users = newUser :: users

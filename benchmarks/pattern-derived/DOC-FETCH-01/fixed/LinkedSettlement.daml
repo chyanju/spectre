@@ -1,0 +1,46 @@
+-- DOC-FETCH-01 FIXED: Use contract key lookup instead of stale ContractId
+-- Instead of storing a raw ContractId, the Settlement uses fetchByKey
+-- to locate the Obligation at execution time, and handles the missing case.
+
+module Synthetic.LinkedSettlement where
+
+template Obligation
+  with
+    debtor : Party
+    creditor : Party
+    amount : Decimal
+  where
+    signatory debtor
+    observer creditor
+
+    key (debtor, creditor) : (Party, Party)
+    maintainer key._1
+
+    choice Cancel : ()
+      controller debtor
+      do pure ()
+
+template Settlement
+  with
+    operator : Party
+    debtor : Party
+    creditor : Party
+    -- FIXED: no stored ContractId; use key-based lookup at execution time
+  where
+    signatory operator
+    observer debtor, creditor
+
+    choice Execute : ()
+      controller operator
+      do
+        -- FIXED: look up by key instead of using a potentially stale ContractId
+        optObligation <- lookupByKey @Obligation (debtor, creditor)
+        case optObligation of
+          None ->
+            -- FIXED: graceful handling when obligation no longer exists
+            abort "Obligation not found or already cancelled"
+          Some obligationCid -> do
+            obligation <- fetch obligationCid
+            assertMsg "Amount mismatch" (obligation.amount > 0.0)
+            archive obligationCid
+            pure ()
