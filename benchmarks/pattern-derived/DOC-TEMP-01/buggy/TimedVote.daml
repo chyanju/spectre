@@ -1,0 +1,30 @@
+-- DOC-TEMP-01 BUGGY: Missing deadline enforcement
+-- The Vote choice does not check whether the voting deadline has passed,
+-- allowing votes to be cast after the window has closed.
+
+module Synthetic.TimedVote where
+
+template Proposal
+  with
+    proposer : Party
+    voters : [Party]
+    deadline : Time
+    yesVotes : Int
+  where
+    signatory proposer
+    observer voters
+
+    choice Vote : ContractId Proposal
+      with
+        voter : Party
+      controller voter
+      do
+        -- BUG: No check that now < deadline
+        create this with yesVotes = yesVotes + 1
+
+    choice Tally : Bool
+      controller proposer
+      do
+        now <- getTime
+        assertMsg "Voting period not ended" (now >= deadline)
+        pure (yesVotes > length voters / 2)

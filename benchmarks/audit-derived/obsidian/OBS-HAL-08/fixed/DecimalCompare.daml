@@ -1,0 +1,50 @@
+module Obsidian.DecimalCompare where
+
+-- FIXED: Uses epsilon-based comparison for computed Decimal values.
+
+template PoolRebalancer
+  with
+    admin : Party
+    targetRatio : Decimal
+    epsilon : Decimal  -- tolerance for comparison
+  where
+    signatory admin
+    ensure epsilon > 0.0
+
+    choice Rebalance : ()
+      with
+        currentA : Decimal
+        currentB : Decimal
+      controller admin
+      do
+        assertMsg "Amounts must be positive" (currentA > 0.0 && currentB > 0.0)
+        let currentRatio = currentA / currentB
+        -- FIXED: Use epsilon-based comparison instead of exact equality
+        let diff = if currentRatio >= targetRatio
+              then currentRatio - targetRatio
+              else targetRatio - currentRatio
+        if diff <= epsilon
+          then pure ()  -- balanced within tolerance
+          else do
+            -- perform rebalance
+            pure ()
+
+template SwapValidator
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice ValidateInvariant : Bool
+      with
+        reserveA : Decimal
+        reserveB : Decimal
+        newReserveA : Decimal
+        newReserveB : Decimal
+      controller admin
+      do
+        let oldProduct = reserveA * reserveB
+        let newProduct = newReserveA * newReserveB
+        -- FIXED: New product must be >= old product (no loss),
+        -- rather than exact equality which fails due to rounding.
+        pure (newProduct >= oldProduct)

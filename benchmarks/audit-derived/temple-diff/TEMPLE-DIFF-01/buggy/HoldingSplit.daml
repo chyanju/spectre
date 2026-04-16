@@ -1,0 +1,26 @@
+module Temple.HoldingSplit where
+
+-- BUGGY: Split operation creates the requested portion but does not
+-- create or return a remainder holding when input > requested amount.
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    choice Split : ContractId Holding
+      with
+        requestedAmount : Decimal
+      controller owner
+      do
+        assertMsg "Requested amount must be positive" (requestedAmount > 0.0)
+        assertMsg "Insufficient balance" (amount >= requestedAmount)
+        -- BUG: Only creates the requested portion.
+        -- If amount > requestedAmount, the remainder (amount - requestedAmount)
+        -- is effectively burned — no change holding is returned.
+        archive self
+        create this with amount = requestedAmount

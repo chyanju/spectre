@@ -1,0 +1,47 @@
+module Obsidian.DecimalCompare where
+
+-- BUGGY: Uses exact equality (==) on computed Decimal values,
+-- which may fail due to rounding in fixed-point arithmetic.
+
+template PoolRebalancer
+  with
+    admin : Party
+    targetRatio : Decimal
+  where
+    signatory admin
+
+    choice Rebalance : ()
+      with
+        currentA : Decimal
+        currentB : Decimal
+      controller admin
+      do
+        assertMsg "Amounts must be positive" (currentA > 0.0 && currentB > 0.0)
+        let currentRatio = currentA / currentB
+        -- BUG: Exact comparison on a computed ratio.
+        -- Due to fixed-point rounding, currentA / currentB may not
+        -- exactly equal targetRatio even when the pool is balanced.
+        if currentRatio == targetRatio
+          then pure ()  -- balanced
+          else do
+            -- perform rebalance
+            pure ()
+
+template SwapValidator
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice ValidateInvariant : Bool
+      with
+        reserveA : Decimal
+        reserveB : Decimal
+        newReserveA : Decimal
+        newReserveB : Decimal
+      controller admin
+      do
+        let oldProduct = reserveA * reserveB
+        let newProduct = newReserveA * newReserveB
+        -- BUG: Exact comparison of computed products
+        pure (oldProduct == newProduct)

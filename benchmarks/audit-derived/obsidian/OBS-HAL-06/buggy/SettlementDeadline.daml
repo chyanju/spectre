@@ -1,0 +1,25 @@
+module Obsidian.SettlementDeadline where
+
+-- BUGGY: Settlement deadlines allow zero or negative duration windows.
+
+template SettlementConfig
+  with
+    admin : Party
+    executor : Party
+    executeAfter : Time
+    executeBefore : Time
+  where
+    signatory admin
+    observer executor
+    -- BUG: Only checks both times are set, but does NOT validate
+    -- that executeAfter < executeBefore.
+    -- This allows zero-duration or negative-duration windows.
+
+    choice Execute : ()
+      controller executor
+      do
+        now <- getTime
+        assertMsg "Too early" (now >= executeAfter)
+        assertMsg "Too late" (now < executeBefore)
+        -- With executeAfter >= executeBefore, this is impossible to satisfy
+        pure ()

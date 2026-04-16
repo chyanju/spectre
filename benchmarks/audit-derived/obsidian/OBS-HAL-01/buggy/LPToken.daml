@@ -1,0 +1,63 @@
+module Obsidian.LPToken where
+
+-- BUGGY: LP token mint/burn operations do not validate that the
+-- pool context matches the LP token's associated pool ID.
+
+template LiquidityPool
+  with
+    admin : Party
+    poolId : Text
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    lpSupply : Decimal
+  where
+    signatory admin
+    ensure reserveA >= 0.0 && reserveB >= 0.0 && lpSupply >= 0.0
+
+template LPToken
+  with
+    owner : Party
+    admin : Party
+    poolId : Text
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template LPMinter
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice MintLP : ContractId LPToken
+      with
+        poolCid : ContractId LiquidityPool
+        recipient : Party
+        amount : Decimal
+        forPoolId : Text
+      controller admin
+      do
+        _pool <- fetch poolCid
+        -- BUG: Mints LP token with forPoolId without checking
+        -- that forPoolId matches pool.poolId.
+        -- An attacker can mint LP tokens for Pool A using Pool B's context.
+        create LPToken with
+          owner = recipient
+          admin
+          poolId = forPoolId  -- BUG: should be validated against pool.poolId
+          amount
+
+    choice BurnLP : ()
+      with
+        poolCid : ContractId LiquidityPool
+        lpTokenCid : ContractId LPToken
+      controller admin
+      do
+        pool <- fetch poolCid
+        lpToken <- fetch lpTokenCid
+        -- BUG: Burns LP token without checking lpToken.poolId == pool.poolId.
+        -- LP tokens from one pool can be burned against another pool.
+        archive lpTokenCid

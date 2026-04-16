@@ -1,0 +1,26 @@
+-- DOC-UPGRADE-01 FIXED: Versioned interface view with metadata support
+-- TokenV2 uses a versioned view that includes the metadata field.
+-- V1 consumers receive a compatibility wrapper.
+
+module Synthetic.TokenV1 where
+
+data TokenView = TokenView
+  with
+    owner : Party
+    amount : Int
+    metadataOpt : Optional Text  -- backward-compatible extension
+  deriving (Eq, Show)
+
+template TokenV2
+  with
+    owner : Party
+    amount : Int
+    metadata : Text
+  where
+    signatory owner
+
+    interface instance Token for TokenV2 where
+      view = TokenView with
+        owner
+        amount
+        metadataOpt = Some metadata  -- FIXED: metadata is included

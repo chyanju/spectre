@@ -1,0 +1,36 @@
+--- buggy/HoldingSplit.daml	2026-04-14 19:27:10.696269812 -0700
++++ fixed/HoldingSplit.daml	2026-04-14 19:27:13.977269564 -0700
+@@ -1,7 +1,6 @@
+ module Temple.HoldingSplit where
+ 
+--- BUGGY: Split operation creates the requested portion but does not
+--- create or return a remainder holding when input > requested amount.
++-- FIXED: Split operation returns both the requested portion and the remainder.
+ 
+ template Holding
+   with
+@@ -12,15 +11,19 @@
+     signatory admin, owner
+     ensure amount > 0.0
+ 
+-    choice Split : ContractId Holding
++    choice Split : (ContractId Holding, Optional (ContractId Holding))
+       with
+         requestedAmount : Decimal
+       controller owner
+       do
+         assertMsg "Requested amount must be positive" (requestedAmount > 0.0)
+         assertMsg "Insufficient balance" (amount >= requestedAmount)
+-        -- BUG: Only creates the requested portion.
+-        -- If amount > requestedAmount, the remainder (amount - requestedAmount)
+-        -- is effectively burned — no change holding is returned.
+         archive self
+-        create this with amount = requestedAmount
++        requestedCid <- create this with amount = requestedAmount
++        -- FIXED: Create and return remainder holding if there is leftover
++        remainderCid <- if amount > requestedAmount
++          then do
++            cid <- create this with amount = amount - requestedAmount
++            pure (Some cid)
++          else pure None
++        pure (requestedCid, remainderCid)

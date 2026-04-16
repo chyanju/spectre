@@ -1,0 +1,25 @@
+module Obsidian.PoolCancellation where
+
+-- BUGGY: Cancellation does not record the reason, reducing audit trail.
+
+template PoolCreationRequest
+  with
+    requester : Party
+    admin : Party
+    poolId : Text
+    tokenA : Text
+    tokenB : Text
+  where
+    signatory requester
+    observer admin
+
+    choice ApproveCreation : ()
+      controller admin
+      do pure ()
+
+    choice CancelCreation : ()
+      controller admin
+      do
+        -- BUG: Just archives the request with no record of why.
+        -- No audit trail for the cancellation decision.
+        pure ()

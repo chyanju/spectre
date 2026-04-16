@@ -1,0 +1,55 @@
+module Temple.FifoMatching where
+
+-- BUGGY: Order matching iterates over orders without sorting by creation time,
+-- violating expected FIFO semantics for fair order execution.
+
+template LimitOrder
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    price : Decimal
+    createdAt : Time
+    expiresAt : Time
+  where
+    signatory admin, owner
+    ensure amount > 0.0 && price > 0.0
+
+template OrderBook
+  with
+    admin : Party
+    sellOrders : [ContractId LimitOrder]
+  where
+    signatory admin
+
+    choice MatchBuyOrder : ContractId LimitOrder
+      with
+        buyOrderCid : ContractId LimitOrder
+      controller admin
+      do
+        buyOrder <- fetch buyOrderCid
+        -- BUG: Iterates through sellOrders in arbitrary list order.
+        -- No sorting by createdAt, so older orders may be skipped.
+        matched <- findMatch buyOrder.price sellOrders
+        case matched of
+          None -> fail "No matching sell order"
+          Some (sellCid, _rest) -> do
+            archive buyOrderCid
+            archive sellCid
+            create LimitOrder with
+              owner = buyOrder.owner
+              admin
+              amount = buyOrder.amount
+              price = buyOrder.price
+              createdAt = buyOrder.createdAt
+              expiresAt = buyOrder.expiresAt
+
+findMatch : Decimal -> [ContractId LimitOrder] -> Update (Optional (ContractId LimitOrder, [ContractId LimitOrder]))
+findMatch _price [] = pure None
+findMatch price (cid :: rest) = do
+  order <- fetch cid
+  if order.price <= price
+    then pure (Some (cid, rest))
+    else do
+      result <- findMatch price rest
+      pure result

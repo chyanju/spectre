@@ -1,0 +1,14 @@
+-- DOC-DIAG-01 FIXED: Admin is the signatory of audit records
+-- The actor cannot unilaterally delete audit entries.
+
+module Synthetic.AuditLog where
+
+template AuditEntry
+  with
+    admin : Party
+    actor : Party
+    action : Text
+    timestamp : Time
+  where
+    signatory admin    -- FIXED: admin controls audit record lifecycle
+    observer actor

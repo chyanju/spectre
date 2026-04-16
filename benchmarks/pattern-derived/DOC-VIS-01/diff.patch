@@ -1,0 +1,24 @@
+--- buggy/Escrow.daml
++++ fixed/Escrow.daml
+@@ -1,6 +1,5 @@
+--- DOC-VIS-01 BUGGY: Controller not listed as observer
+--- The beneficiary is expected to exercise the Release choice but is not
+--- an observer, so they cannot see the contract on the ledger.
++-- DOC-VIS-01 FIXED: Added beneficiary as observer
++-- Now the beneficiary can see the Escrow contract and exercise Release.
+ 
+ module Synthetic.Escrow where
+ 
+@@ -11,10 +10,10 @@
+     amount : Int
+   where
+     signatory depositor
+-    -- BUG: beneficiary is not listed as observer
++    observer beneficiary
+     ensure amount > 0
+ 
+     choice Release : ()
+-      controller beneficiary  -- beneficiary can't see this contract!
++      controller beneficiary
+       do
+         pure ()

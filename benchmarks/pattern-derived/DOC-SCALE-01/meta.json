@@ -1,0 +1,54 @@
+{
+  "id": "DOC-SCALE-01",
+  "title": "Unbounded observer set causes linear contract growth",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Scalability Pattern - Observer Set Management",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "PartyRegistry template",
+  "pattern_family": "scalability",
+  "pattern_name": "unbounded_observer_set",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.Registry"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A singleton registry template accumulates parties in a Set field that is used in the observer clause. As the set grows, every transaction touching the registry must include O(n) parties in the disclosure witness, eventually exceeding Canton's maximum transaction size.",
+  "recommendation": "Use per-party child contracts instead of accumulating parties in a singleton set. This keeps the admin contract constant-size.",
+  "code_snippets": [
+    {
+      "label": "Unbounded knownParties set",
+      "buggy_file": "buggy/Registry.daml",
+      "fixed_file": "fixed/Registry.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "scalability",
+    "description": "Template fields used in observer clauses must have bounded growth.",
+    "static_signal": "Set/List field used in observer clause with insert but no size bound check",
+    "symbolic_property": "forall n. after_n_registers(n) => contract_size(registry) <= constant"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": [
+    "scalability",
+    "observer-bloat",
+    "singleton",
+    "set-growth",
+    "synthetic"
+  ],
+  "notes": "Common architecture anti-pattern in DAML."
+}

@@ -1,0 +1,27 @@
+--- buggy/PoolRequest.daml	2026-04-14 19:36:35.008856091 -0700
++++ fixed/PoolRequest.daml	2026-04-14 19:36:39.206813046 -0700
+@@ -1,7 +1,6 @@
+ module Obsidian.PoolRequest where
+ 
+--- BUGGY: Pool creation request does not validate that the vault
+--- belongs to the specified venue.
++-- FIXED: Pool creation validates venue-vault consistency.
+ 
+ template Venue
+   with
+@@ -38,8 +37,13 @@
+       do
+         venue <- fetch venueCid
+         vault <- fetch vaultCid
+-        -- BUG: Does not check that vault.venueId == venue.venueId
+-        -- A vault from a different venue could be used.
++        -- FIXED: Validate venue-vault consistency
++        assertMsg "Vault does not belong to specified venue"
++          (vault.venueId == venue.venueId)
++        assertMsg "Venue ID mismatch with request"
++          (venue.venueId == venueId)
++        assertMsg "Vault ID mismatch with request"
++          (vault.vaultId == vaultId)
+         create LiquidityPool with
+           admin
+           venueId = venue.venueId

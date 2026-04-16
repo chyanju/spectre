@@ -1,0 +1,40 @@
+--- buggy/PoolFactory.daml	2026-04-14 19:30:41.034685613 -0700
++++ fixed/PoolFactory.daml	2026-04-14 19:30:45.851660449 -0700
+@@ -1,10 +1,18 @@
+ module Obsidian.PoolFactory where
+ 
+--- BUGGY: Pool creation does not enforce uniqueness of instrument pairs.
++-- FIXED: Pool creation validates no existing pool for the same pair.
++
++template PoolRegistry
++  with
++    admin : Party
++    existingPairs : [(Text, Text)]
++  where
++    signatory admin
+ 
+ template PoolFactory
+   with
+     admin : Party
++    registryCid : ContractId PoolRegistry
+   where
+     signatory admin
+ 
+@@ -16,9 +24,15 @@
+         initialB : Decimal
+       controller admin
+       do
+-        -- BUG: No check for existing pool with same (tokenA, tokenB) pair.
+-        -- Multiple pools can be created for the same pair, fragmenting liquidity.
+         assertMsg "Initial liquidity must be positive" (initialA > 0.0 && initialB > 0.0)
++        -- FIXED: Check registry for existing pool with same pair
++        registry <- fetch registryCid
++        let normalizedPair = if tokenA <= tokenB then (tokenA, tokenB) else (tokenB, tokenA)
++        assertMsg "Pool already exists for this instrument pair"
++          (notElem normalizedPair registry.existingPairs)
++        -- Update registry with new pair
++        archive registryCid
++        _ <- create registry with existingPairs = normalizedPair :: registry.existingPairs
+         create LiquidityPool with
+           admin
+           tokenA

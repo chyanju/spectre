@@ -1,0 +1,43 @@
+{
+  "id": "OBS-HAL-10",
+  "title": "Fee updates can silently disable swaps",
+  "artifact_type": "finding",
+  "source_kind": "audit_report",
+  "source_title": "Tradecraft AMM - Obsidian - Halborn",
+  "source_url": "https://www.halborn.com/audits/obsidian/tradecraft-amm-1e29e9",
+  "repo": "obsidian-systems/tradecraft/canton-swap-amm",
+  "date": "2025-12-29",
+  "target_object": "AMMFees update logic",
+  "affected_modules": ["AMMFees.daml"],
+  "pattern_family": "invariant",
+  "pattern_name": "fee_update_disables_functionality",
+  "severity": "low",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "moderate",
+  "explicit_bugfix": true,
+  "explicit_security": true,
+  "inferred_pattern": true,
+  "synthetic": false,
+  "before_version": "ad2619c",
+  "after_version": "f710bb0",
+  "before_after_available": true,
+  "description": "Updating fee parameters can result in a configuration that silently disables all swap operations. Certain fee values (e.g., 100% fee, or fee configurations that make swaps economically impossible) are not rejected during the update, leading to a state where the AMM appears active but no swaps can succeed.",
+  "recommendation": "Validate fee parameter updates to ensure the resulting configuration still allows swap operations, rejecting updates that would effectively disable the AMM.",
+  "code_snippets": {
+    "buggy": "buggy/FeeUpdate.daml",
+    "fixed": "fixed/FeeUpdate.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Fee update does not validate that the new fee configuration still permits functional swap operations.",
+    "static_signal": "Fee update choice that sets fee parameters without bounds checking (e.g., fee < 100%, fee >= 0)",
+    "symbolic_property": "forall feeUpdate(newFee): newFee < 1.0 AND newFee >= 0.0"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["AMM", "fee-configuration", "silent-failure", "availability"],
+  "notes": "Interesting pattern: a valid-looking administrative action that silently breaks core functionality."
+}

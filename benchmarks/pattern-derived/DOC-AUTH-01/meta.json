@@ -1,0 +1,53 @@
+{
+  "id": "DOC-AUTH-01",
+  "title": "Missing role authorization check on privileged operation",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Authorization Pattern - Role-Based Access Control",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "BurnFrom choice",
+  "pattern_family": "auth",
+  "pattern_name": "missing_role_check",
+  "severity": "critical",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.TokenAdmin"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A privileged operation (BurnFrom) is missing a role membership check. Any party authorized as controller can burn tokens from any account without holding the BURNER_ROLE. This is the most fundamental DAML authorization anti-pattern.",
+  "recommendation": "Always verify role membership (Set.member caller roleSet) before executing privileged operations.",
+  "code_snippets": [
+    {
+      "label": "Missing role check in BurnFrom",
+      "buggy_file": "buggy/TokenAdmin.daml",
+      "fixed_file": "fixed/TokenAdmin.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "authorization",
+    "description": "Privileged choices must validate caller role membership before execution.",
+    "static_signal": "Choice body lacks assertMsg/assertRole on role set membership for controller",
+    "symbolic_property": "forall caller. executes(BurnFrom, caller) => member(caller, roles.burners)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "authorization",
+    "rbac",
+    "missing-check",
+    "synthetic"
+  ],
+  "notes": "Synthetic example distilled from common patterns seen in DAML audits."
+}

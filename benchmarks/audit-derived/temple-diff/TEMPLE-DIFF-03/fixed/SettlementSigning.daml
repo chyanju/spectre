@@ -1,0 +1,38 @@
+module Temple.SettlementSigning where
+
+-- FIXED: Settlement signing validates delegation role matches required role.
+
+data SigningRole = Executor | Approver | Observer deriving (Eq, Show)
+
+template Delegation
+  with
+    grantor : Party
+    grantee : Party
+    admin : Party
+    role : SigningRole
+  where
+    signatory admin, grantor
+    observer grantee
+
+template SettlementInstruction
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+    requiredRole : SigningRole
+  where
+    signatory admin
+    observer executor
+
+    choice SignWithDelegation : ()
+      with
+        delegationCid : ContractId Delegation
+        actor : Party
+      controller actor
+      do
+        delegation <- fetch delegationCid
+        assertMsg "Actor must be delegation grantee" (actor == delegation.grantee)
+        -- FIXED: Validate that delegation role matches the required signing role
+        assertMsg "Delegation role does not match required signing role"
+          (delegation.role == requiredRole)
+        pure ()

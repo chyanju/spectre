@@ -1,0 +1,43 @@
+{
+  "id": "OBS-HAL-05",
+  "title": "Swap activity is not recorded for featured rewards",
+  "artifact_type": "finding",
+  "source_kind": "audit_report",
+  "source_title": "Tradecraft AMM - Obsidian - Halborn",
+  "source_url": "https://www.halborn.com/audits/obsidian/tradecraft-amm-1e29e9",
+  "repo": "obsidian-systems/tradecraft/canton-swap-amm",
+  "date": "2025-12-29",
+  "target_object": "Swap activity / reward tracking",
+  "affected_modules": ["AMM.daml"],
+  "pattern_family": "diagnostics",
+  "pattern_name": "missing_activity_recording",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "moderate",
+  "explicit_bugfix": true,
+  "explicit_security": true,
+  "inferred_pattern": true,
+  "synthetic": false,
+  "before_version": "ad2619c",
+  "after_version": "0ed3c07",
+  "before_after_available": true,
+  "description": "Swap transactions do not record activity needed for featured reward calculations. Users who perform swaps may not receive the rewards they are entitled to because the system has no record of their swap activity for reward distribution purposes.",
+  "recommendation": "Record swap activity in a form that can be queried for reward calculations, either as events or as state updates to reward-tracking contracts.",
+  "code_snippets": {
+    "buggy": "buggy/SwapExecution.daml",
+    "fixed": "fixed/SwapExecution.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Swap execution does not emit or record activity needed for reward calculation.",
+    "static_signal": "Swap choice body that does not create an activity/event record or update a reward-tracking contract",
+    "symbolic_property": null
+  },
+  "good_for_static": true,
+  "good_for_symbolic": false,
+  "good_for_benchmark": true,
+  "tags": ["AMM", "rewards", "activity-tracking", "missing-event"],
+  "notes": "Business logic completeness issue. The swap executes correctly but lacks side-effect recording for incentive mechanisms."
+}

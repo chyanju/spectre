@@ -1,0 +1,55 @@
+module Temple.OrderWorkflow where
+
+-- FIXED: When locking holdings for an order, if the total input exceeds
+-- the order amount, a change holding is created for the remainder.
+
+data OrderStatus = Open | Filled | Cancelled deriving (Eq, Show)
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template LockedHolding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    lockHolder : Party
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template OrderRequest
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    holdingCids : [ContractId Holding]
+  where
+    signatory admin, owner
+
+    choice LockForOrder : ([ContractId LockedHolding], Optional (ContractId Holding))
+      controller admin
+      do
+        -- Compute total input
+        holdings <- forA holdingCids $ \cid -> do
+          h <- fetch cid
+          archive cid
+          pure h
+        let total = foldl (\acc h -> acc + h.amount) 0.0 holdings
+        assertMsg "Insufficient balance" (total >= amount)
+        -- Lock exactly the order amount
+        lockedCid <- create LockedHolding with
+          owner, admin, amount, lockHolder = admin
+        -- FIXED: Return remainder as a new unlocked holding
+        changeCid <- if total > amount
+          then do
+            cid <- create Holding with owner, admin, amount = total - amount
+            pure (Some cid)
+          else pure None
+        pure ([lockedCid], changeCid)

@@ -1,0 +1,29 @@
+module Temple.OrderValidation where
+
+-- FIXED: Renamed choice to accurately reflect its behavior (state mutation).
+-- Added a separate non-consuming validation choice.
+
+template Order
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    price : Decimal
+    validated : Bool
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    -- FIXED: Non-consuming choice for pure validation (read-only)
+    nonconsuming choice CheckOrderValidity : Bool
+      controller admin
+      do
+        pure (amount > 0.0 && price > 0.0)
+
+    -- FIXED: Renamed to clearly indicate state mutation
+    choice MarkOrderValidated : ContractId Order
+      controller admin
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        assertMsg "Price must be positive" (price > 0.0)
+        create this with validated = True

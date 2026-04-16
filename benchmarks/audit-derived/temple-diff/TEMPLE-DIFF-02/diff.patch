@@ -1,0 +1,30 @@
+--- buggy/AllocationMerge.daml	2026-04-14 19:27:19.528268412 -0700
++++ fixed/AllocationMerge.daml	2026-04-14 19:27:23.080267203 -0700
+@@ -1,8 +1,7 @@
+ module Temple.AllocationMerge where
+ 
+--- BUGGY: Allocation consolidation takes receiver from the first input
+--- without asserting all inputs have the same receiver. This can silently
+--- redirect assets to the wrong party.
++-- FIXED: Allocation consolidation asserts all inputs share the same
++-- sender and receiver before merging.
+ 
+ template Allocation
+   with
+@@ -32,11 +31,13 @@
+           pure a
+         assertMsg "At least one allocation required" (not (null allocations))
+         let first = head allocations
+-        -- BUG: Uses receiver from first allocation without checking
+-        -- that all allocations have the same receiver.
++        -- FIXED: Assert all allocations share the same sender and receiver
++        forA_ allocations $ \a -> do
++          assertMsg "All allocations must have the same sender" (a.sender == first.sender)
++          assertMsg "All allocations must have the same receiver" (a.receiver == first.receiver)
+         let totalAmount = foldl (\acc a -> acc + a.amount) 0.0 allocations
+         create Allocation with
+           admin = first.admin
+           sender = first.sender
+-          receiver = first.receiver  -- BUG: could differ across inputs
++          receiver = first.receiver
+           amount = totalAmount

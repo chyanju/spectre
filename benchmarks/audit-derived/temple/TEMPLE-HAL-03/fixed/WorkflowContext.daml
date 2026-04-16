@@ -1,0 +1,43 @@
+module Temple.WorkflowContext where
+
+import DA.Text as Text
+import DA.Optional (fromSome)
+
+-- FIXED: Context data is validated before use.
+
+data WorkflowContext = WorkflowContext
+  with
+    settlementId : Text
+    metadata : [(Text, Text)]
+  deriving (Eq, Show)
+
+validateContext : WorkflowContext -> Update ()
+validateContext ctx = do
+  assertMsg "Settlement ID must not be empty" (ctx.settlementId /= "")
+  assertMsg "Settlement ID too long" (Text.length ctx.settlementId <= 256)
+  assertMsg "Too many metadata entries" (length ctx.metadata <= 50)
+  forA_ ctx.metadata $ \(k, v) -> do
+    assertMsg "Metadata key must not be empty" (k /= "")
+    assertMsg "Metadata value too long" (Text.length v <= 1024)
+
+template Settlement
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+  where
+    signatory admin
+    observer executor
+
+    choice ExecuteWithContext : ()
+      with
+        context : WorkflowContext
+      controller executor
+      do
+        -- FIXED: Validate context before use
+        validateContext context
+        let ref = case lookup "reference" context.metadata of
+              Some v -> v
+              None -> "default"
+        assertMsg "Amount must be positive" (amount > 0.0)
+        pure ()

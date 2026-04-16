@@ -1,0 +1,26 @@
+module Temple.MakerTaker where
+
+-- FIXED: Maker/taker assignment uses deterministic criteria (lower price = maker).
+
+data TradeRole = Maker | Taker deriving (Eq, Show)
+
+template TradeMatch
+  with
+    admin : Party
+    order1Owner : Party
+    order2Owner : Party
+    order1Amount : Decimal
+    order2Amount : Decimal
+    order1Price : Decimal
+    order2Price : Decimal
+  where
+    signatory admin
+
+    choice AssignRoles : (TradeRole, TradeRole)
+      controller admin
+      do
+        -- FIXED: Deterministic assignment based on price.
+        -- Lower price order is the maker (providing liquidity).
+        if order1Price <= order2Price
+          then pure (Maker, Taker)
+          else pure (Taker, Maker)

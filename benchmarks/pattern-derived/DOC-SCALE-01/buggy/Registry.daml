@@ -1,0 +1,25 @@
+-- DOC-SCALE-01 BUGGY: Unbounded observer set causes O(n) growth
+-- Every registered party is added to the observer set of the singleton
+-- registry contract. As parties grow, the contract size and Merkle
+-- witness size grow linearly, eventually hitting Canton's maximum
+-- transaction size limit.
+
+module Synthetic.Registry where
+
+import DA.Set as Set
+
+template PartyRegistry
+  with
+    admin : Party
+    knownParties : Set Party  -- BUG: grows without bound
+  where
+    signatory admin
+    observer Set.toList knownParties  -- O(n) observers
+
+    choice Register : ContractId PartyRegistry
+      with
+        party : Party
+      controller admin
+      do
+        -- No upper-bound check, set grows forever
+        create this with knownParties = Set.insert party knownParties

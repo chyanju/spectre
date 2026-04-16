@@ -1,0 +1,54 @@
+{
+  "id": "DOC-INTEG-01",
+  "title": "Missing expected-admin validation in factory proxy",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Integration Pattern - Admin Verification",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "TransferProxy.ProxyTransfer choice",
+  "pattern_family": "integration",
+  "pattern_name": "missing_expected_admin_check",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.FactoryProxy"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A proxy template delegates to an underlying factory without verifying that the expected admin matches the actual admin. A caller could pass a mismatched expectedAdmin, potentially redirecting the operation to a different factory or bypassing admin-specific restrictions.",
+  "recommendation": "Always verify expectedAdmin == admin before delegating to external factory contracts.",
+  "code_snippets": [
+    {
+      "label": "Proxy without admin check",
+      "buggy_file": "buggy/FactoryProxy.daml",
+      "fixed_file": "fixed/FactoryProxy.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "authorization",
+    "description": "Proxy/delegation patterns must verify the expected admin matches before forwarding.",
+    "static_signal": "expectedAdmin parameter not compared to template admin field",
+    "symbolic_property": "forall proxy. delegates(proxy, factory) => verified(proxy.admin == expectedAdmin)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "integration",
+    "admin-check",
+    "delegation",
+    "proxy",
+    "synthetic"
+  ],
+  "notes": "Common admin verification pattern in DAML delegation workflows."
+}

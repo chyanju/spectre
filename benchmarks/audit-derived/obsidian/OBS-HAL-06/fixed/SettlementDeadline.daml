@@ -1,0 +1,23 @@
+module Obsidian.SettlementDeadline where
+
+-- FIXED: Settlement deadlines validated to ensure positive execution window.
+
+template SettlementConfig
+  with
+    admin : Party
+    executor : Party
+    executeAfter : Time
+    executeBefore : Time
+  where
+    signatory admin
+    observer executor
+    -- FIXED: Ensure clause validates positive-duration window
+    ensure executeAfter < executeBefore
+
+    choice Execute : ()
+      controller executor
+      do
+        now <- getTime
+        assertMsg "Too early" (now >= executeAfter)
+        assertMsg "Too late" (now < executeBefore)
+        pure ()

@@ -1,0 +1,27 @@
+module Temple.DeadlineCheck where
+
+-- BUGGY: Assertion on Optional Time deadline produces confusing
+-- error message when the deadline is None.
+
+template TimedAction
+  with
+    admin : Party
+    actor : Party
+    deadline : Optional Time
+    label : Text
+  where
+    signatory admin
+    observer actor
+
+    choice Execute : ()
+      controller actor
+      do
+        now <- getTime
+        -- BUG: When deadline is None, this produces a misleading error:
+        -- "Deadline label must be in the future" even though there is no deadline.
+        case deadline of
+          Some d -> assertMsg (label <> " must be in the future") (now < d)
+          None -> assertMsg (label <> " must be in the future") True
+          -- The None branch always passes, but the error message is
+          -- confusing if the assertion logic is ever changed or reused.
+        pure ()

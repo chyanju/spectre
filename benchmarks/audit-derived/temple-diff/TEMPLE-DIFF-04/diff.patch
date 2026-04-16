@@ -1,0 +1,26 @@
+--- buggy/DeadlineCheck.daml	2026-04-14 19:27:35.277260266 -0700
++++ fixed/DeadlineCheck.daml	2026-04-14 19:27:37.630258438 -0700
+@@ -1,7 +1,6 @@
+ module Temple.DeadlineCheck where
+ 
+--- BUGGY: Assertion on Optional Time deadline produces confusing
+--- error message when the deadline is None.
++-- FIXED: Distinct handling and messaging for None vs Some deadline.
+ 
+ template TimedAction
+   with
+@@ -17,11 +16,8 @@
+       controller actor
+       do
+         now <- getTime
+-        -- BUG: When deadline is None, this produces a misleading error:
+-        -- "Deadline label must be in the future" even though there is no deadline.
++        -- FIXED: Handle None and Some with distinct, clear messages
+         case deadline of
+-          Some d -> assertMsg (label <> " must be in the future") (now < d)
+-          None -> assertMsg (label <> " must be in the future") True
+-          -- The None branch always passes, but the error message is
+-          -- confusing if the assertion logic is ever changed or reused.
++          Some d -> assertMsg (label <> " deadline has passed (expired at " <> show d <> ")") (now < d)
++          None -> pure ()  -- No deadline, no assertion needed
+         pure ()

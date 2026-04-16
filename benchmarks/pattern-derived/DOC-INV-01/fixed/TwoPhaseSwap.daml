@@ -1,0 +1,29 @@
+-- DOC-INV-01 FIXED: Symmetric validation on both execute and rollback paths
+-- Both paths now verify the escrowed amount matches the expected amount.
+
+module Synthetic.TwoPhaseSwap where
+
+template EscrowedSwap
+  with
+    party1 : Party
+    party2 : Party
+    escrowedAmount : Int
+    expectedAmount : Int
+  where
+    signatory party1
+    observer party2
+    ensure escrowedAmount > 0
+
+    choice Execute : ()
+      controller party2
+      do
+        assertMsg "Amount mismatch" (escrowedAmount == expectedAmount)
+        -- transfer to party2
+        pure ()
+
+    choice Rollback : ()
+      controller party1
+      do
+        assertMsg "Amount mismatch" (escrowedAmount == expectedAmount)
+        -- refund to party1
+        pure ()

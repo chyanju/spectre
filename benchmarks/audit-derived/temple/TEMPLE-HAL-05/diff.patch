@@ -1,0 +1,52 @@
+--- buggy/FifoMatching.daml	2026-04-14 19:24:25.542090614 -0700
++++ fixed/FifoMatching.daml	2026-04-14 19:24:31.048990636 -0700
+@@ -1,7 +1,9 @@
+ module Temple.FifoMatching where
+ 
+--- BUGGY: Order matching iterates over orders without sorting by creation time,
+--- violating expected FIFO semantics for fair order execution.
++import DA.List (sortOn)
++
++-- FIXED: Order matching sorts sell orders by createdAt before matching,
++-- ensuring FIFO execution semantics.
+ 
+ template LimitOrder
+   with
+@@ -28,12 +30,15 @@
+       controller admin
+       do
+         buyOrder <- fetch buyOrderCid
+-        -- BUG: Iterates through sellOrders in arbitrary list order.
+-        -- No sorting by createdAt, so older orders may be skipped.
+-        matched <- findMatch buyOrder.price sellOrders
++        -- FIXED: Fetch all sell orders, sort by createdAt (FIFO), then match.
++        sellOrderData <- forA sellOrders $ \cid -> do
++          order <- fetch cid
++          pure (cid, order)
++        let sorted = sortOn (\(_, o) -> o.createdAt) sellOrderData
++        matched <- findMatchSorted buyOrder.price sorted
+         case matched of
+           None -> fail "No matching sell order"
+-          Some (sellCid, _rest) -> do
++          Some sellCid -> do
+             archive buyOrderCid
+             archive sellCid
+             create LimitOrder with
+@@ -44,12 +49,9 @@
+               createdAt = buyOrder.createdAt
+               expiresAt = buyOrder.expiresAt
+ 
+-findMatch : Decimal -> [ContractId LimitOrder] -> Update (Optional (ContractId LimitOrder, [ContractId LimitOrder]))
+-findMatch _price [] = pure None
+-findMatch price (cid :: rest) = do
+-  order <- fetch cid
++findMatchSorted : Decimal -> [(ContractId LimitOrder, LimitOrder)] -> Update (Optional (ContractId LimitOrder))
++findMatchSorted _price [] = pure None
++findMatchSorted price ((cid, order) :: rest) =
+   if order.price <= price
+-    then pure (Some (cid, rest))
+-    else do
+-      result <- findMatch price rest
+-      pure result
++    then pure (Some cid)
++    else findMatchSorted price rest

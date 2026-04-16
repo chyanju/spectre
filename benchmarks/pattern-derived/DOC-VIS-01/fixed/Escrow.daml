@@ -1,0 +1,19 @@
+-- DOC-VIS-01 FIXED: Added beneficiary as observer
+-- Now the beneficiary can see the Escrow contract and exercise Release.
+
+module Synthetic.Escrow where
+
+template Escrow
+  with
+    depositor : Party
+    beneficiary : Party
+    amount : Int
+  where
+    signatory depositor
+    observer beneficiary
+    ensure amount > 0
+
+    choice Release : ()
+      controller beneficiary
+      do
+        pure ()

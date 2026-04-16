@@ -1,0 +1,54 @@
+{
+  "id": "DOC-LIFE-01",
+  "title": "Orphaned contract reference after standalone archive",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Lifecycle Pattern - Reference Integrity",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "LockedAsset / TransferOrder",
+  "pattern_family": "lifecycle",
+  "pattern_name": "orphaned_reference_after_archive",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.LockedAsset"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A LockedAsset can be independently archived (via ExpireLock), but the TransferOrder holding a ContractId reference to it is not atomically updated. After ExpireLock, the TransferOrder has a dangling reference and its Execute choice will fail at fetch.",
+  "recommendation": "Restrict archive paths so that referenced contracts can only be consumed through the referencing workflow (Execute/Cancel), not independently.",
+  "code_snippets": [
+    {
+      "label": "ExpireLock creates dangling reference",
+      "buggy_file": "buggy/LockedAsset.daml",
+      "fixed_file": "fixed/LockedAsset.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "lifecycle",
+    "description": "Contracts referenced by ContractId from other active contracts must not be independently archivable.",
+    "static_signal": "Template has standalone archive choice while being referenced by ContractId in another template",
+    "symbolic_property": "forall a b. references(b, a) && active(b) => not(archivable_independently(a))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "lifecycle",
+    "dangling-reference",
+    "archive",
+    "lock",
+    "synthetic"
+  ],
+  "notes": "Fundamental DAML anti-pattern."
+}

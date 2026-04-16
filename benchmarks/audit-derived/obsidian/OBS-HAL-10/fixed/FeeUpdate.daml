@@ -1,0 +1,42 @@
+module Obsidian.FeeUpdate where
+
+-- FIXED: Fee update validates the new rate still permits functional swaps.
+
+maxFeeRateBps : Int
+maxFeeRateBps = 5000  -- 50% maximum fee
+
+template FeeConfig
+  with
+    admin : Party
+    feeRateBps : Int  -- basis points: 30 = 0.3%
+  where
+    signatory admin
+    ensure feeRateBps >= 0 && feeRateBps < maxFeeRateBps
+
+    choice UpdateFee : ContractId FeeConfig
+      with
+        newFeeRateBps : Int
+      controller admin
+      do
+        -- FIXED: Enforce a maximum fee rate to prevent disabling swaps
+        assertMsg "Fee must be non-negative" (newFeeRateBps >= 0)
+        assertMsg "Fee must be below maximum" (newFeeRateBps < maxFeeRateBps)
+        create this with feeRateBps = newFeeRateBps
+
+template SwapExecutor
+  with
+    admin : Party
+    feeConfigCid : ContractId FeeConfig
+  where
+    signatory admin
+
+    choice ExecuteSwap : Decimal
+      with
+        inputAmount : Decimal
+      controller admin
+      do
+        feeConfig <- fetch feeConfigCid
+        let fee = inputAmount * intToDecimal feeConfig.feeRateBps / 10000.0
+        let netAmount = inputAmount - fee
+        assertMsg "Output must be positive" (netAmount > 0.0)
+        pure netAmount

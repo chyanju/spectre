@@ -1,0 +1,21 @@
+--- buggy/TimedVote.daml
++++ fixed/TimedVote.daml
+@@ -1,6 +1,5 @@
+--- DOC-TEMP-01 BUGGY: Missing deadline enforcement
+--- The Vote choice does not check whether the voting deadline has passed,
+--- allowing votes to be cast after the window has closed.
++-- DOC-TEMP-01 FIXED: Added deadline check in Vote choice
++-- Votes are now rejected after the deadline has passed.
+ 
+ module Synthetic.TimedVote where
+ 
+@@ -19,7 +18,8 @@
+         voter : Party
+       controller voter
+       do
+-        -- BUG: No check that now < deadline
++        now <- getTime
++        assertMsg "Voting deadline has passed" (now < deadline)
+         create this with yesVotes = yesVotes + 1
+ 
+     choice Tally : Bool

@@ -1,0 +1,40 @@
+--- buggy/FeeUpdate.daml	2026-04-14 19:36:25.904948854 -0700
++++ fixed/FeeUpdate.daml	2026-04-14 19:36:29.969907539 -0700
+@@ -1,6 +1,9 @@
+ module Obsidian.FeeUpdate where
+ 
+--- BUGGY: Fee update does not validate that the new fee still permits swaps.
++-- FIXED: Fee update validates the new rate still permits functional swaps.
++
++maxFeeRateBps : Int
++maxFeeRateBps = 5000  -- 50% maximum fee
+ 
+ template FeeConfig
+   with
+@@ -8,16 +11,16 @@
+     feeRateBps : Int  -- basis points: 30 = 0.3%
+   where
+     signatory admin
+-    ensure feeRateBps >= 0
++    ensure feeRateBps >= 0 && feeRateBps < maxFeeRateBps
+ 
+     choice UpdateFee : ContractId FeeConfig
+       with
+         newFeeRateBps : Int
+       controller admin
+       do
+-        -- BUG: Only checks non-negative, but allows 10000 (100% fee)
+-        -- or higher, which would make all swaps return 0 or negative output.
++        -- FIXED: Enforce a maximum fee rate to prevent disabling swaps
+         assertMsg "Fee must be non-negative" (newFeeRateBps >= 0)
++        assertMsg "Fee must be below maximum" (newFeeRateBps < maxFeeRateBps)
+         create this with feeRateBps = newFeeRateBps
+ 
+ template SwapExecutor
+@@ -35,6 +38,5 @@
+         feeConfig <- fetch feeConfigCid
+         let fee = inputAmount * intToDecimal feeConfig.feeRateBps / 10000.0
+         let netAmount = inputAmount - fee
+-        -- With feeRateBps = 10000, netAmount = 0.0 — swap produces nothing
+         assertMsg "Output must be positive" (netAmount > 0.0)
+         pure netAmount

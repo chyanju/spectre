@@ -1,0 +1,43 @@
+{
+  "id": "OBS-HAL-07",
+  "title": "Zero liquidity pool creation due to decimal quantization",
+  "artifact_type": "finding",
+  "source_kind": "audit_report",
+  "source_title": "Tradecraft AMM - Obsidian - Halborn",
+  "source_url": "https://www.halborn.com/audits/obsidian/tradecraft-amm-1e29e9",
+  "repo": "obsidian-systems/tradecraft/canton-swap-amm",
+  "date": "2025-12-29",
+  "target_object": "Pool creation / decimal handling",
+  "affected_modules": ["AMM.daml"],
+  "pattern_family": "invariant",
+  "pattern_name": "decimal_quantization_edge_case",
+  "severity": "low",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "moderate",
+  "explicit_bugfix": true,
+  "explicit_security": true,
+  "inferred_pattern": true,
+  "synthetic": false,
+  "before_version": "ad2619c",
+  "after_version": "a7ef54f",
+  "before_after_available": true,
+  "description": "Due to decimal precision and quantization behavior, it is possible to create a liquidity pool with effectively zero liquidity. Rounding during the initial deposit calculation can reduce the effective deposit to zero while still creating the pool contract, leaving an empty but active pool.",
+  "recommendation": "Validate that the effective deposited amounts are greater than zero after all rounding/quantization, rejecting pool creation if the result would be a zero-liquidity pool.",
+  "code_snippets": {
+    "buggy": "buggy/PoolLiquidity.daml",
+    "fixed": "fixed/PoolLiquidity.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Pool creation does not validate that effective liquidity after decimal rounding is greater than zero.",
+    "static_signal": "Create/ensure clause that checks amount > 0 on raw input but not on the post-quantization result",
+    "symbolic_property": "forall pool: active(pool) => pool.effectiveLiquidity > 0"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["AMM", "decimal-precision", "rounding", "zero-liquidity", "edge-case"],
+  "notes": "Numeric precision issues are common in financial DAML contracts. DAML uses fixed-point Decimal with limited precision."
+}

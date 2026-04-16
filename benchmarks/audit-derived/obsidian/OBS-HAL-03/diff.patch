@@ -1,0 +1,31 @@
+--- buggy/AllocationWindow.daml	2026-04-14 19:30:34.769717650 -0700
++++ fixed/AllocationWindow.daml	2026-04-14 19:30:37.018706239 -0700
+@@ -1,7 +1,6 @@
+ module Obsidian.AllocationWindow where
+ 
+--- BUGGY: Allocation enforces a stricter time window than the settlement,
+--- causing valid settlement operations to fail.
++-- FIXED: Allocation uses the settlement model's execution window.
+ 
+ template Settlement
+   with
+@@ -19,7 +18,6 @@
+     admin : Party
+     executor : Party
+     amount : Decimal
+-    allocationDeadline : Time
+     settlementCid : ContractId Settlement
+   where
+     signatory admin
+@@ -30,9 +28,7 @@
+       do
+         settlement <- fetch settlementCid
+         now <- getTime
+-        -- BUG: Uses allocationDeadline which is stricter than
+-        -- settlement.executeBefore. Valid settlements that are
+-        -- within the settlement window but past allocationDeadline fail.
+-        assertMsg "Allocation deadline passed" (now < allocationDeadline)
++        -- FIXED: Use settlement model's time window directly
+         assertMsg "Settlement window not open" (now >= settlement.executeAfter)
++        assertMsg "Settlement window closed" (now < settlement.executeBefore)
+         pure ()

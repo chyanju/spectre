@@ -1,0 +1,54 @@
+module Obsidian.PoolFactory where
+
+-- FIXED: Pool creation validates no existing pool for the same pair.
+
+template PoolRegistry
+  with
+    admin : Party
+    existingPairs : [(Text, Text)]
+  where
+    signatory admin
+
+template PoolFactory
+  with
+    admin : Party
+    registryCid : ContractId PoolRegistry
+  where
+    signatory admin
+
+    choice CreatePool : ContractId LiquidityPool
+      with
+        tokenA : Text
+        tokenB : Text
+        initialA : Decimal
+        initialB : Decimal
+      controller admin
+      do
+        assertMsg "Initial liquidity must be positive" (initialA > 0.0 && initialB > 0.0)
+        -- FIXED: Check registry for existing pool with same pair
+        registry <- fetch registryCid
+        let normalizedPair = if tokenA <= tokenB then (tokenA, tokenB) else (tokenB, tokenA)
+        assertMsg "Pool already exists for this instrument pair"
+          (notElem normalizedPair registry.existingPairs)
+        -- Update registry with new pair
+        archive registryCid
+        _ <- create registry with existingPairs = normalizedPair :: registry.existingPairs
+        create LiquidityPool with
+          admin
+          tokenA
+          tokenB
+          reserveA = initialA
+          reserveB = initialB
+          lpSupply = initialA * initialB
+
+template LiquidityPool
+  with
+    admin : Party
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    lpSupply : Decimal
+  where
+    signatory admin
+    ensure reserveA >= 0.0 && reserveB >= 0.0

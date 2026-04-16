@@ -1,0 +1,22 @@
+-- DOC-INTEG-01 FIXED: Added expected-admin validation
+-- The proxy now verifies the expected admin matches before delegating.
+
+module Synthetic.FactoryProxy where
+
+template TransferProxy
+  with
+    admin : Party
+    factoryCid : ContractId TransferFactory
+  where
+    signatory admin
+
+    choice ProxyTransfer : ()
+      with
+        caller : Party
+        expectedAdmin : Party
+        amount : Int
+      controller caller
+      do
+        assertMsg "Expected admin mismatch" (expectedAdmin == admin)
+        exercise factoryCid DoTransfer with caller; amount
+        pure ()

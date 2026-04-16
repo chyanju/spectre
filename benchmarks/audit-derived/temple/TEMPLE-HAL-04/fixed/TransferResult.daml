@@ -1,0 +1,39 @@
+module Temple.TransferResult where
+
+-- FIXED: Validates list is non-empty before accessing head.
+
+template TransferProcessor
+  with
+    admin : Party
+    sender : Party
+    receiver : Party
+  where
+    signatory admin
+
+    choice ProcessTransfer : ContractId Holding
+      with
+        holdingCids : [ContractId Holding]
+      controller admin
+      do
+        assertMsg "At least one holding required" (not (null holdingCids))
+        results <- executeTransfers admin sender receiver holdingCids
+        -- FIXED: Validate result list before accessing
+        case results of
+          [] -> fail "Transfer produced no output holdings"
+          (first :: _) -> pure first
+
+executeTransfers : Party -> Party -> Party -> [ContractId Holding] -> Update [ContractId Holding]
+executeTransfers admin sender receiver holdingCids = do
+  forA holdingCids $ \cid -> do
+    h <- fetch cid
+    archive cid
+    create Holding with owner = receiver, admin, amount = h.amount
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0

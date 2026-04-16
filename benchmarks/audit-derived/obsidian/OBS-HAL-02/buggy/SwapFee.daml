@@ -1,0 +1,36 @@
+module Obsidian.SwapFee where
+
+-- BUGGY: User-supplied fee parameter is not validated against the
+-- on-ledger fee configuration. User can specify any fee value.
+
+template FeeConfig
+  with
+    admin : Party
+    feeRateBps : Int  -- Fee in basis points (e.g., 30 = 0.3%)
+  where
+    signatory admin
+    ensure feeRateBps >= 0 && feeRateBps <= 10000
+
+template SwapRequest
+  with
+    user : Party
+    admin : Party
+    inputAmount : Decimal
+    feeAmount : Decimal  -- BUG: User-controlled fee parameter
+  where
+    signatory admin, user
+    ensure inputAmount > 0.0
+
+    choice ExecuteSwap : ()
+      with
+        feeConfigCid : ContractId FeeConfig
+      controller admin
+      do
+        _feeConfig <- fetch feeConfigCid
+        -- BUG: Uses user-supplied feeAmount directly without validating
+        -- it against the authoritative feeConfig.feeRateBps.
+        -- A user can overpay fees, potentially draining their account,
+        -- or underpay fees, cheating the protocol.
+        let netAmount = inputAmount - feeAmount
+        assertMsg "Net amount must be positive" (netAmount > 0.0)
+        pure ()

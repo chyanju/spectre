@@ -1,0 +1,39 @@
+module Temple.SettlementSigning where
+
+-- BUGGY: Settlement signing accepts any delegation without checking
+-- that the delegation's role matches the required signing role.
+
+data SigningRole = Executor | Approver | Observer deriving (Eq, Show)
+
+template Delegation
+  with
+    grantor : Party
+    grantee : Party
+    admin : Party
+    role : SigningRole
+  where
+    signatory admin, grantor
+    observer grantee
+
+template SettlementInstruction
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+    requiredRole : SigningRole
+  where
+    signatory admin
+    observer executor
+
+    choice SignWithDelegation : ()
+      with
+        delegationCid : ContractId Delegation
+        actor : Party
+      controller actor
+      do
+        delegation <- fetch delegationCid
+        -- BUG: Only checks that actor is the grantee,
+        -- but does NOT check delegation.role == requiredRole.
+        -- An Observer delegation could be used to sign as Executor.
+        assertMsg "Actor must be delegation grantee" (actor == delegation.grantee)
+        pure ()

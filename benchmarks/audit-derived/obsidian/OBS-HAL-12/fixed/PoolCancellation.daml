@@ -1,0 +1,43 @@
+module Obsidian.PoolCancellation where
+
+-- FIXED: Cancellation records the reason for audit trail.
+
+template CancellationRecord
+  with
+    admin : Party
+    requester : Party
+    poolId : Text
+    reason : Text
+    cancelledAt : Time
+  where
+    signatory admin
+
+template PoolCreationRequest
+  with
+    requester : Party
+    admin : Party
+    poolId : Text
+    tokenA : Text
+    tokenB : Text
+  where
+    signatory requester
+    observer admin
+
+    choice ApproveCreation : ()
+      controller admin
+      do pure ()
+
+    choice CancelCreation : ContractId CancellationRecord
+      with
+        reason : Text
+      controller admin
+      do
+        -- FIXED: Record the cancellation reason on-ledger
+        assertMsg "Cancellation reason must not be empty" (reason /= "")
+        now <- getTime
+        create CancellationRecord with
+          admin
+          requester
+          poolId
+          reason
+          cancelledAt = now

@@ -1,0 +1,59 @@
+module Obsidian.LPToken where
+
+-- FIXED: LP token mint/burn operations validate pool context matches.
+
+template LiquidityPool
+  with
+    admin : Party
+    poolId : Text
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    lpSupply : Decimal
+  where
+    signatory admin
+    ensure reserveA >= 0.0 && reserveB >= 0.0 && lpSupply >= 0.0
+
+template LPToken
+  with
+    owner : Party
+    admin : Party
+    poolId : Text
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template LPMinter
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice MintLP : ContractId LPToken
+      with
+        poolCid : ContractId LiquidityPool
+        recipient : Party
+        amount : Decimal
+      controller admin
+      do
+        pool <- fetch poolCid
+        -- FIXED: LP token poolId comes from the actual pool, not user input
+        create LPToken with
+          owner = recipient
+          admin
+          poolId = pool.poolId  -- FIXED: derived from fetched pool
+          amount
+
+    choice BurnLP : ()
+      with
+        poolCid : ContractId LiquidityPool
+        lpTokenCid : ContractId LPToken
+      controller admin
+      do
+        pool <- fetch poolCid
+        lpToken <- fetch lpTokenCid
+        -- FIXED: Validate pool context matches LP token
+        assertMsg "LP token pool mismatch" (lpToken.poolId == pool.poolId)
+        archive lpTokenCid

@@ -1,0 +1,29 @@
+--- buggy/TransferResult.daml	2026-04-14 19:21:47.604956505 -0700
++++ fixed/TransferResult.daml	2026-04-14 19:21:51.160892019 -0700
+@@ -1,6 +1,6 @@
+ module Temple.TransferResult where
+ 
+--- BUGGY: Uses head on transfer results without checking list length.
++-- FIXED: Validates list is non-empty before accessing head.
+ 
+ template TransferProcessor
+   with
+@@ -15,13 +15,15 @@
+         holdingCids : [ContractId Holding]
+       controller admin
+       do
++        assertMsg "At least one holding required" (not (null holdingCids))
+         results <- executeTransfers admin sender receiver holdingCids
+-        -- BUG: Assumes results is non-empty, will crash on empty list
+-        pure (head results)
++        -- FIXED: Validate result list before accessing
++        case results of
++          [] -> fail "Transfer produced no output holdings"
++          (first :: _) -> pure first
+ 
+ executeTransfers : Party -> Party -> Party -> [ContractId Holding] -> Update [ContractId Holding]
+ executeTransfers admin sender receiver holdingCids = do
+-  -- Could return empty list if all holdings are zero or filtered out
+   forA holdingCids $ \cid -> do
+     h <- fetch cid
+     archive cid

@@ -1,0 +1,54 @@
+{
+  "id": "DOC-TEMP-01",
+  "title": "Missing deadline enforcement on time-sensitive choice",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Temporal Pattern - Deadline Enforcement",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "Proposal.Vote choice",
+  "pattern_family": "temporal",
+  "pattern_name": "missing_deadline_check",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.TimedVote"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "A time-sensitive choice (Vote) does not check whether the current time is within the allowed window. Votes can be cast after the deadline has passed, subverting the tally result.",
+  "recommendation": "Add getTime + assertMsg check at the beginning of time-sensitive choices to enforce the deadline.",
+  "code_snippets": [
+    {
+      "label": "Vote without deadline check",
+      "buggy_file": "buggy/TimedVote.daml",
+      "fixed_file": "fixed/TimedVote.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "temporal",
+    "description": "Time-sensitive choices must validate current time against their deadline.",
+    "static_signal": "Choice body references Time field but lacks getTime + comparison assertion",
+    "symbolic_property": "forall t. executes(Vote, t) => t < deadline"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "temporal",
+    "deadline",
+    "time-window",
+    "voting",
+    "synthetic"
+  ],
+  "notes": "Common in any workflow with time-bounded phases."
+}

@@ -1,0 +1,42 @@
+module Temple.RelockAllocation where
+
+-- BUGGY: When re-locking an allocation after partial fill, the new lock
+-- uses a fresh deadline instead of preserving the original expiration.
+
+template Allocation
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    lockedUntil : Time
+    originalOrderExpiry : Time
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    choice PartialFillAndRelock : (ContractId Allocation, ContractId Holding)
+      with
+        fillAmount : Decimal
+        newLockDuration : RelTime
+      controller admin
+      do
+        assertMsg "Fill amount must be less than total" (fillAmount < amount)
+        now <- getTime
+        -- BUG: Re-locked allocation gets a new deadline based on current time,
+        -- not the original order's expiration time.
+        -- This effectively extends the lock beyond the original order lifetime.
+        let newDeadline = addRelTime now newLockDuration
+        relocked <- create this with
+          amount = amount - fillAmount
+          lockedUntil = newDeadline  -- BUG: should use originalOrderExpiry
+        filled <- create Holding with owner, admin, amount = fillAmount
+        pure (relocked, filled)
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0

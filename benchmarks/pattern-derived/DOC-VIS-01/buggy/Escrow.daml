@@ -1,0 +1,20 @@
+-- DOC-VIS-01 BUGGY: Controller not listed as observer
+-- The beneficiary is expected to exercise the Release choice but is not
+-- an observer, so they cannot see the contract on the ledger.
+
+module Synthetic.Escrow where
+
+template Escrow
+  with
+    depositor : Party
+    beneficiary : Party
+    amount : Int
+  where
+    signatory depositor
+    -- BUG: beneficiary is not listed as observer
+    ensure amount > 0
+
+    choice Release : ()
+      controller beneficiary  -- beneficiary can't see this contract!
+      do
+        pure ()

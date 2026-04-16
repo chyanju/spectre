@@ -1,0 +1,22 @@
+--- buggy/OrderMatching.daml	2026-04-14 19:21:31.721244546 -0700
++++ fixed/OrderMatching.daml	2026-04-14 19:21:34.698190566 -0700
+@@ -1,6 +1,6 @@
+ module Temple.OrderMatching where
+ 
+--- BUGGY: Order matching does not check if orders have expired before matching.
++-- FIXED: Order matching validates expiration before proceeding.
+ 
+ template Order
+   with
+@@ -26,7 +26,10 @@
+       do
+         buyOrder <- fetch buyOrderCid
+         sellOrder <- fetch sellOrderCid
+-        -- BUG: No check on expiresAt — expired orders can be matched
++        -- FIXED: Check expiration before matching
++        now <- getTime
++        assertMsg "Buy order has expired" (now < buyOrder.expiresAt)
++        assertMsg "Sell order has expired" (now < sellOrder.expiresAt)
+         assertMsg "Price mismatch" (buyOrder.price >= sellOrder.price)
+         assertMsg "Insufficient sell amount" (sellOrder.amount >= buyOrder.amount)
+         archive buyOrderCid

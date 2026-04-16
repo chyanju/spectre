@@ -1,0 +1,49 @@
+{
+  "id": "CANTON-REL-04",
+  "title": "ACS export and party replication broken after hard domain migration",
+  "artifact_type": "release-notes",
+  "source_kind": "github-release",
+  "source_title": "Canton 2.10.0 Release Notes - Issue 24-028",
+  "source_url": "https://github.com/digital-asset/canton/releases",
+  "repo": "digital-asset/canton",
+  "date": "2024-01-01",
+  "target_object": "ACS export / party replication / domain migration",
+  "pattern_family": "lifecycle",
+  "pattern_name": "broken_state_after_hard_migration",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "high",
+  "explicit_bugfix": true,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": false,
+  "affected_modules": [
+    "ACS export",
+    "party replication",
+    "domain migration"
+  ],
+  "before_version": "pre-2.10.0",
+  "after_version": "2.10.0",
+  "before_after_available": false,
+  "description": "ACS export and party replication become non-functional after a hard domain migration. The migration process leaves internal state references pointing to the old domain, causing subsequent ACS export operations and party replication to fail silently or produce incomplete results.",
+  "recommendation": "Upgrade to Canton 2.10.0 which fixes domain migration to properly update all internal state references.",
+  "code_snippets": [],
+  "oracle": {
+    "type": "correctness",
+    "description": "Domain migration must update all internal references so that ACS export and party replication continue to function.",
+    "static_signal": "State references not updated during domain migration",
+    "symbolic_property": "forall ref. after_migration(domain) => resolve(ref) == valid_target(ref)"
+  },
+  "good_for_static": false,
+  "good_for_symbolic": false,
+  "good_for_benchmark": false,
+  "tags": [
+    "domain-migration",
+    "acs-export",
+    "party-replication",
+    "canton-runtime",
+    "state-consistency"
+  ],
+  "notes": "Canton infrastructure bug. More relevant for runtime/migration safety tooling than contract-level analysis. | Marked out-of-scope: runtime-layer bug, not detectable via contract-level static analysis or symbolic execution."
+}

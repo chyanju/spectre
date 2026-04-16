@@ -1,0 +1,34 @@
+module Temple.WorkflowContext where
+
+import DA.Text as Text
+import DA.Optional (fromSome)
+
+-- BUGGY: Context data is used without validation, allowing malformed
+-- inputs to cause runtime failures or DoS.
+
+data WorkflowContext = WorkflowContext
+  with
+    settlementId : Text
+    metadata : [(Text, Text)]
+  deriving (Eq, Show)
+
+template Settlement
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+  where
+    signatory admin
+    observer executor
+
+    choice ExecuteWithContext : ()
+      with
+        context : WorkflowContext
+      controller executor
+      do
+        -- BUG: No validation of context fields
+        -- Empty settlementId could cause downstream failures
+        -- metadata is used unsafely with fromSome
+        let ref = fromSome (lookup "reference" context.metadata)
+        assertMsg "Amount must be positive" (amount > 0.0)
+        pure ()

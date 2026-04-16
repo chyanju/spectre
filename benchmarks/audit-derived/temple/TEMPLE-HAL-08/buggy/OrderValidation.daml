@@ -1,0 +1,25 @@
+module Temple.OrderValidation where
+
+-- BUGGY: Choice named "ValidateOrder" actually performs state mutations,
+-- not just validation. This misleads developers and auditors.
+
+template Order
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    price : Decimal
+    validated : Bool
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    -- BUG: Name says "Validate" but it archives and recreates the contract,
+    -- which is a state mutation, not a read-only validation.
+    choice ValidateOrder : ContractId Order
+      controller admin
+      do
+        assertMsg "Amount must be positive" (amount > 0.0)
+        assertMsg "Price must be positive" (price > 0.0)
+        -- Mutating state — this is NOT just validation!
+        create this with validated = True

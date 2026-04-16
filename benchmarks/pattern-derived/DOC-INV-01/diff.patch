@@ -1,0 +1,19 @@
+--- buggy/TwoPhaseSwap.daml
++++ fixed/TwoPhaseSwap.daml
+@@ -1,6 +1,5 @@
+--- DOC-INV-01 BUGGY: Asymmetric validation between execute and rollback paths
+--- The Execute path checks that the escrowed amount matches the expected amount,
+--- but the Rollback path does not, allowing silent amount mismatches on refund.
++-- DOC-INV-01 FIXED: Symmetric validation on both execute and rollback paths
++-- Both paths now verify the escrowed amount matches the expected amount.
+ 
+ module Synthetic.TwoPhaseSwap where
+ 
+@@ -25,6 +24,6 @@
+     choice Rollback : ()
+       controller party1
+       do
+-        -- BUG: no amount consistency check on rollback
++        assertMsg "Amount mismatch" (escrowedAmount == expectedAmount)
+         -- refund to party1
+         pure ()

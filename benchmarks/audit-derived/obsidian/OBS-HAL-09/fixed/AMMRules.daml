@@ -1,0 +1,60 @@
+module Obsidian.AMMRules where
+
+-- FIXED: Explicit revocation and cancellation choices added.
+
+template AMMRules
+  with
+    admin : Party
+    participant : Party
+    feeRateBps : Int
+    active : Bool
+  where
+    signatory admin, participant
+
+    -- FIXED: Admin can unilaterally deactivate the rules
+    choice Deactivate : ContractId AMMRules
+      controller admin
+      do
+        create this with active = False
+
+    -- FIXED: Either party can request termination
+    choice RequestTermination : ContractId TerminationRequest
+      with
+        requestor : Party
+      controller requestor
+      do
+        assertMsg "Must be admin or participant" (requestor == admin || requestor == participant)
+        create TerminationRequest with
+          admin, participant, requestor
+
+template ParticipationRequest
+  with
+    requester : Party
+    admin : Party
+    poolId : Text
+  where
+    signatory requester
+    observer admin
+
+    -- FIXED: Requester can cancel their own request
+    choice CancelRequest : ()
+      controller requester
+      do pure ()
+
+    choice ApproveRequest : ContractId AMMRules
+      controller admin
+      do
+        create AMMRules with
+          admin
+          participant = requester
+          feeRateBps = 30
+          active = True
+
+template TerminationRequest
+  with
+    admin : Party
+    participant : Party
+    requestor : Party
+  where
+    signatory requestor
+    observer if requestor == admin then [participant] else [admin]

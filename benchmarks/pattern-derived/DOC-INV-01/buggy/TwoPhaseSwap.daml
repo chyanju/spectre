@@ -1,0 +1,30 @@
+-- DOC-INV-01 BUGGY: Asymmetric validation between execute and rollback paths
+-- The Execute path checks that the escrowed amount matches the expected amount,
+-- but the Rollback path does not, allowing silent amount mismatches on refund.
+
+module Synthetic.TwoPhaseSwap where
+
+template EscrowedSwap
+  with
+    party1 : Party
+    party2 : Party
+    escrowedAmount : Int
+    expectedAmount : Int
+  where
+    signatory party1
+    observer party2
+    ensure escrowedAmount > 0
+
+    choice Execute : ()
+      controller party2
+      do
+        assertMsg "Amount mismatch" (escrowedAmount == expectedAmount)
+        -- transfer to party2
+        pure ()
+
+    choice Rollback : ()
+      controller party1
+      do
+        -- BUG: no amount consistency check on rollback
+        -- refund to party1
+        pure ()

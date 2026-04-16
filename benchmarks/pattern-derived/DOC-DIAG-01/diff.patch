@@ -1,0 +1,19 @@
+--- buggy/AuditLog.daml
++++ fixed/AuditLog.daml
+@@ -1,6 +1,5 @@
+--- DOC-DIAG-01 BUGGY: Audit event template with actor as signatory
+--- The actor who performed the action is the signatory, which means
+--- they can unilaterally archive the audit record, erasing evidence.
++-- DOC-DIAG-01 FIXED: Admin is the signatory of audit records
++-- The actor cannot unilaterally delete audit entries.
+ 
+ module Synthetic.AuditLog where
+ 
+@@ -11,5 +10,5 @@
+     action : Text
+     timestamp : Time
+   where
+-    signatory actor    -- BUG: actor can archive their own audit records
+-    observer admin
++    signatory admin    -- FIXED: admin controls audit record lifecycle
++    observer actor

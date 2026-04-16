@@ -1,0 +1,28 @@
+module Obsidian.SwapExecution where
+
+-- BUGGY: Swap execution does not record activity needed for reward calculation.
+
+template LiquidityPool
+  with
+    admin : Party
+    poolId : Text
+    reserveA : Decimal
+    reserveB : Decimal
+  where
+    signatory admin
+    ensure reserveA > 0.0 && reserveB > 0.0
+
+    choice Swap : ContractId LiquidityPool
+      with
+        user : Party
+        inputToken : Text
+        inputAmount : Decimal
+      controller admin, user
+      do
+        assertMsg "Input must be positive" (inputAmount > 0.0)
+        let outputAmount = (reserveB * inputAmount) / (reserveA + inputAmount)
+        -- BUG: Swap completes but no activity record is created.
+        -- Users who swap will not be credited for featured rewards.
+        create this with
+          reserveA = reserveA + inputAmount
+          reserveB = reserveB - outputAmount

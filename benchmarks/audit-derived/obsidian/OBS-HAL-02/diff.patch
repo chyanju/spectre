@@ -1,0 +1,34 @@
+--- buggy/SwapFee.daml	2026-04-14 19:30:26.878756884 -0700
++++ fixed/SwapFee.daml	2026-04-14 19:30:30.252740264 -0700
+@@ -1,7 +1,6 @@
+ module Obsidian.SwapFee where
+ 
+--- BUGGY: User-supplied fee parameter is not validated against the
+--- on-ledger fee configuration. User can specify any fee value.
++-- FIXED: Fee is computed from the authoritative on-ledger fee configuration.
+ 
+ template FeeConfig
+   with
+@@ -16,7 +15,6 @@
+     user : Party
+     admin : Party
+     inputAmount : Decimal
+-    feeAmount : Decimal  -- BUG: User-controlled fee parameter
+   where
+     signatory admin, user
+     ensure inputAmount > 0.0
+@@ -26,11 +24,9 @@
+         feeConfigCid : ContractId FeeConfig
+       controller admin
+       do
+-        _feeConfig <- fetch feeConfigCid
+-        -- BUG: Uses user-supplied feeAmount directly without validating
+-        -- it against the authoritative feeConfig.feeRateBps.
+-        -- A user can overpay fees, potentially draining their account,
+-        -- or underpay fees, cheating the protocol.
++        feeConfig <- fetch feeConfigCid
++        -- FIXED: Compute fee from authoritative config, not user input
++        let feeAmount = inputAmount * intToDecimal feeConfig.feeRateBps / 10000.0
+         let netAmount = inputAmount - feeAmount
+         assertMsg "Net amount must be positive" (netAmount > 0.0)
+         pure ()

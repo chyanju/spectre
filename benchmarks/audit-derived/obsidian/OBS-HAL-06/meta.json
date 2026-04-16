@@ -1,0 +1,43 @@
+{
+  "id": "OBS-HAL-06",
+  "title": "Settlement deadlines allow logically invalid execution windows",
+  "artifact_type": "finding",
+  "source_kind": "audit_report",
+  "source_title": "Tradecraft AMM - Obsidian - Halborn",
+  "source_url": "https://www.halborn.com/audits/obsidian/tradecraft-amm-1e29e9",
+  "repo": "obsidian-systems/tradecraft/canton-swap-amm",
+  "date": "2025-12-29",
+  "target_object": "Settlement deadline validation",
+  "affected_modules": ["AMM.daml"],
+  "pattern_family": "temporal",
+  "pattern_name": "invalid_deadline_configuration",
+  "severity": "low",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "moderate",
+  "explicit_bugfix": true,
+  "explicit_security": true,
+  "inferred_pattern": true,
+  "synthetic": false,
+  "before_version": "ad2619c",
+  "after_version": "7464fbd",
+  "before_after_available": true,
+  "description": "Settlement deadlines can be configured in a way that creates logically invalid execution windows (e.g., zero duration or negative duration windows). This can cause all settlement attempts to fail or create impossible-to-meet timing requirements.",
+  "recommendation": "Validate settlement deadline configuration to ensure execution windows have positive, meaningful duration.",
+  "code_snippets": {
+    "buggy": "buggy/SettlementDeadline.daml",
+    "fixed": "fixed/SettlementDeadline.daml",
+    "diff": "diff.patch"
+  },
+  "oracle": {
+    "type": "missing_check",
+    "description": "Settlement deadline validation allows degenerate configurations where the execution window is zero or negative.",
+    "static_signal": "Deadline validation using <= instead of < between start and end times, or missing validation entirely",
+    "symbolic_property": "forall s: settlement: s.executionStart < s.executionEnd"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": ["AMM", "deadline", "boundary-condition", "settlement"],
+  "notes": "Temporal boundary validation is a cross-cutting DAML bug pattern."
+}

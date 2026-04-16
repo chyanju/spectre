@@ -1,0 +1,26 @@
+module Temple.MakerTaker where
+
+-- BUGGY: Maker/taker role assignment depends on the order of input parameters,
+-- which is non-deterministic when orders are submitted concurrently.
+
+data TradeRole = Maker | Taker deriving (Eq, Show)
+
+template TradeMatch
+  with
+    admin : Party
+    order1Owner : Party
+    order2Owner : Party
+    order1Amount : Decimal
+    order2Amount : Decimal
+    order1Price : Decimal
+    order2Price : Decimal
+  where
+    signatory admin
+
+    choice AssignRoles : (TradeRole, TradeRole)
+      controller admin
+      do
+        -- BUG: The first parameter is always assigned Maker,
+        -- but which order comes first is non-deterministic.
+        -- If two orders arrive simultaneously, the assignment is arbitrary.
+        pure (Maker, Taker)

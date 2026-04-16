@@ -1,0 +1,58 @@
+module Obsidian.PoolRequest where
+
+-- BUGGY: Pool creation request does not validate that the vault
+-- belongs to the specified venue.
+
+template Venue
+  with
+    admin : Party
+    venueId : Text
+  where
+    signatory admin
+
+template Vault
+  with
+    admin : Party
+    vaultId : Text
+    venueId : Text  -- the venue this vault belongs to
+  where
+    signatory admin
+
+template PoolCreationRequest
+  with
+    requester : Party
+    admin : Party
+    venueId : Text
+    vaultId : Text
+    tokenA : Text
+    tokenB : Text
+  where
+    signatory requester
+    observer admin
+
+    choice ApprovePoolCreation : ContractId LiquidityPool
+      with
+        venueCid : ContractId Venue
+        vaultCid : ContractId Vault
+      controller admin
+      do
+        venue <- fetch venueCid
+        vault <- fetch vaultCid
+        -- BUG: Does not check that vault.venueId == venue.venueId
+        -- A vault from a different venue could be used.
+        create LiquidityPool with
+          admin
+          venueId = venue.venueId
+          vaultId = vault.vaultId
+          tokenA
+          tokenB
+
+template LiquidityPool
+  with
+    admin : Party
+    venueId : Text
+    vaultId : Text
+    tokenA : Text
+    tokenB : Text
+  where
+    signatory admin

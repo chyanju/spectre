@@ -1,0 +1,66 @@
+--- buggy/AMMRules.daml	2026-04-14 19:36:13.280076080 -0700
++++ fixed/AMMRules.daml	2026-04-14 19:36:20.830000194 -0700
+@@ -1,8 +1,6 @@
+ module Obsidian.AMMRules where
+ 
+--- BUGGY: Once AMMRules or participation requests are created,
+--- there is no explicit revocation choice. Only implicit Archive exists,
+--- which requires all signatories and may not match the desired authorization.
++-- FIXED: Explicit revocation and cancellation choices added.
+ 
+ template AMMRules
+   with
+@@ -12,9 +10,22 @@
+     active : Bool
+   where
+     signatory admin, participant
+-    -- BUG: No explicit revocation/deactivation choice.
+-    -- To revoke, both admin AND participant must agree to Archive,
+-    -- but the admin should be able to revoke unilaterally.
++
++    -- FIXED: Admin can unilaterally deactivate the rules
++    choice Deactivate : ContractId AMMRules
++      controller admin
++      do
++        create this with active = False
++
++    -- FIXED: Either party can request termination
++    choice RequestTermination : ContractId TerminationRequest
++      with
++        requestor : Party
++      controller requestor
++      do
++        assertMsg "Must be admin or participant" (requestor == admin || requestor == participant)
++        create TerminationRequest with
++          admin, participant, requestor
+ 
+ template ParticipationRequest
+   with
+@@ -24,9 +35,11 @@
+   where
+     signatory requester
+     observer admin
+-    -- BUG: No cancellation choice for the requester.
+-    -- Once submitted, the request persists until admin acts on it.
+-    -- If the requester changes their mind, they cannot cancel.
++
++    -- FIXED: Requester can cancel their own request
++    choice CancelRequest : ()
++      controller requester
++      do pure ()
+ 
+     choice ApproveRequest : ContractId AMMRules
+       controller admin
+@@ -36,3 +49,12 @@
+           participant = requester
+           feeRateBps = 30
+           active = True
++
++template TerminationRequest
++  with
++    admin : Party
++    participant : Party
++    requestor : Party
++  where
++    signatory requestor
++    observer if requestor == admin then [participant] else [admin]

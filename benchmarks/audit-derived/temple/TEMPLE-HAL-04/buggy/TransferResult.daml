@@ -1,0 +1,37 @@
+module Temple.TransferResult where
+
+-- BUGGY: Uses head on transfer results without checking list length.
+
+template TransferProcessor
+  with
+    admin : Party
+    sender : Party
+    receiver : Party
+  where
+    signatory admin
+
+    choice ProcessTransfer : ContractId Holding
+      with
+        holdingCids : [ContractId Holding]
+      controller admin
+      do
+        results <- executeTransfers admin sender receiver holdingCids
+        -- BUG: Assumes results is non-empty, will crash on empty list
+        pure (head results)
+
+executeTransfers : Party -> Party -> Party -> [ContractId Holding] -> Update [ContractId Holding]
+executeTransfers admin sender receiver holdingCids = do
+  -- Could return empty list if all holdings are zero or filtered out
+  forA holdingCids $ \cid -> do
+    h <- fetch cid
+    archive cid
+    create Holding with owner = receiver, admin, amount = h.amount
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0

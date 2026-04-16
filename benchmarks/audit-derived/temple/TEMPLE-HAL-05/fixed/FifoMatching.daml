@@ -1,0 +1,57 @@
+module Temple.FifoMatching where
+
+import DA.List (sortOn)
+
+-- FIXED: Order matching sorts sell orders by createdAt before matching,
+-- ensuring FIFO execution semantics.
+
+template LimitOrder
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    price : Decimal
+    createdAt : Time
+    expiresAt : Time
+  where
+    signatory admin, owner
+    ensure amount > 0.0 && price > 0.0
+
+template OrderBook
+  with
+    admin : Party
+    sellOrders : [ContractId LimitOrder]
+  where
+    signatory admin
+
+    choice MatchBuyOrder : ContractId LimitOrder
+      with
+        buyOrderCid : ContractId LimitOrder
+      controller admin
+      do
+        buyOrder <- fetch buyOrderCid
+        -- FIXED: Fetch all sell orders, sort by createdAt (FIFO), then match.
+        sellOrderData <- forA sellOrders $ \cid -> do
+          order <- fetch cid
+          pure (cid, order)
+        let sorted = sortOn (\(_, o) -> o.createdAt) sellOrderData
+        matched <- findMatchSorted buyOrder.price sorted
+        case matched of
+          None -> fail "No matching sell order"
+          Some sellCid -> do
+            archive buyOrderCid
+            archive sellCid
+            create LimitOrder with
+              owner = buyOrder.owner
+              admin
+              amount = buyOrder.amount
+              price = buyOrder.price
+              createdAt = buyOrder.createdAt
+              expiresAt = buyOrder.expiresAt
+
+findMatchSorted : Decimal -> [(ContractId LimitOrder, LimitOrder)] -> Update (Optional (ContractId LimitOrder))
+findMatchSorted _price [] = pure None
+findMatchSorted price ((cid, order) :: rest) =
+  if order.price <= price
+    then pure (Some cid)
+    else findMatchSorted price rest

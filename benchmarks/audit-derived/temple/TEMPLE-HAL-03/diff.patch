@@ -1,0 +1,43 @@
+--- buggy/WorkflowContext.daml	2026-04-14 19:21:39.430104756 -0700
++++ fixed/WorkflowContext.daml	2026-04-14 19:21:43.625028683 -0700
+@@ -3,8 +3,7 @@
+ import DA.Text as Text
+ import DA.Optional (fromSome)
+ 
+--- BUGGY: Context data is used without validation, allowing malformed
+--- inputs to cause runtime failures or DoS.
++-- FIXED: Context data is validated before use.
+ 
+ data WorkflowContext = WorkflowContext
+   with
+@@ -12,6 +11,15 @@
+     metadata : [(Text, Text)]
+   deriving (Eq, Show)
+ 
++validateContext : WorkflowContext -> Update ()
++validateContext ctx = do
++  assertMsg "Settlement ID must not be empty" (ctx.settlementId /= "")
++  assertMsg "Settlement ID too long" (Text.length ctx.settlementId <= 256)
++  assertMsg "Too many metadata entries" (length ctx.metadata <= 50)
++  forA_ ctx.metadata $ \(k, v) -> do
++    assertMsg "Metadata key must not be empty" (k /= "")
++    assertMsg "Metadata value too long" (Text.length v <= 1024)
++
+ template Settlement
+   with
+     admin : Party
+@@ -26,9 +34,10 @@
+         context : WorkflowContext
+       controller executor
+       do
+-        -- BUG: No validation of context fields
+-        -- Empty settlementId could cause downstream failures
+-        -- metadata is used unsafely with fromSome
+-        let ref = fromSome (lookup "reference" context.metadata)
++        -- FIXED: Validate context before use
++        validateContext context
++        let ref = case lookup "reference" context.metadata of
++              Some v -> v
++              None -> "default"
+         assertMsg "Amount must be positive" (amount > 0.0)
+         pure ()

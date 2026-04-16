@@ -1,0 +1,49 @@
+{
+  "id": "CANTON-REL-02",
+  "title": "RepairService ACS export/import contract key inconsistency",
+  "artifact_type": "release-notes",
+  "source_kind": "github-release",
+  "source_title": "Canton 2.9.7 Release Notes - Issue 25-004",
+  "source_url": "https://github.com/digital-asset/canton/releases",
+  "repo": "digital-asset/canton",
+  "date": "2025-01-01",
+  "target_object": "RepairService / ACS import-export",
+  "pattern_family": "lifecycle",
+  "pattern_name": "contract_key_reuse_on_import",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "high",
+  "explicit_bugfix": true,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": false,
+  "affected_modules": [
+    "contract key repair",
+    "ACS import/export",
+    "migration tooling"
+  ],
+  "before_version": "2.8.x / 2.9.0-2.9.6 / 2.10.0",
+  "after_version": "2.9.7",
+  "before_after_available": false,
+  "description": "RepairService incorrectly reuses input contract keys during ACS export/import, causing the key store and ACS to become inconsistent. After an export-import cycle, contract key lookups may return stale or incorrect results, breaking applications that rely on key uniqueness for state management.",
+  "recommendation": "Upgrade to Canton 2.9.7+ which fixes the RepairService to properly handle contract keys during ACS migration.",
+  "code_snippets": [],
+  "oracle": {
+    "type": "correctness",
+    "description": "ACS export/import must preserve contract key uniqueness and store consistency.",
+    "static_signal": "Contract key reuse detection during import operations",
+    "symbolic_property": "forall k. after_import(acs) => lookup_key(k) == expected_contract(k)"
+  },
+  "good_for_static": false,
+  "good_for_symbolic": false,
+  "good_for_benchmark": false,
+  "tags": [
+    "contract-key",
+    "acs",
+    "migration",
+    "repair-service",
+    "canton-runtime"
+  ],
+  "notes": "Canton infrastructure bug affecting migration tooling. Demonstrates importance of key consistency invariants. | Marked out-of-scope: runtime-layer bug, not detectable via contract-level static analysis or symbolic execution."
+}

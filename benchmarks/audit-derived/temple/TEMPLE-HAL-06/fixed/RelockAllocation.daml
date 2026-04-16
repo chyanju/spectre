@@ -1,0 +1,38 @@
+module Temple.RelockAllocation where
+
+-- FIXED: Re-locked allocation preserves the original order expiration time.
+
+template Allocation
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    lockedUntil : Time
+    originalOrderExpiry : Time
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    choice PartialFillAndRelock : (ContractId Allocation, ContractId Holding)
+      with
+        fillAmount : Decimal
+      controller admin
+      do
+        assertMsg "Fill amount must be less than total" (fillAmount < amount)
+        now <- getTime
+        assertMsg "Original order has expired" (now < originalOrderExpiry)
+        -- FIXED: Re-locked allocation preserves the original expiry.
+        relocked <- create this with
+          amount = amount - fillAmount
+          lockedUntil = originalOrderExpiry  -- FIXED: preserve original
+        filled <- create Holding with owner, admin, amount = fillAmount
+        pure (relocked, filled)
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0

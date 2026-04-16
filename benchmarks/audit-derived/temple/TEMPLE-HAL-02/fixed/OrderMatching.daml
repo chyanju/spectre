@@ -1,0 +1,37 @@
+module Temple.OrderMatching where
+
+-- FIXED: Order matching validates expiration before proceeding.
+
+template Order
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    price : Decimal
+    expiresAt : Time
+  where
+    signatory admin, owner
+    ensure amount > 0.0 && price > 0.0
+
+template OrderMatch
+  with
+    admin : Party
+    buyOrderCid : ContractId Order
+    sellOrderCid : ContractId Order
+  where
+    signatory admin
+
+    choice ExecuteMatch : ()
+      controller admin
+      do
+        buyOrder <- fetch buyOrderCid
+        sellOrder <- fetch sellOrderCid
+        -- FIXED: Check expiration before matching
+        now <- getTime
+        assertMsg "Buy order has expired" (now < buyOrder.expiresAt)
+        assertMsg "Sell order has expired" (now < sellOrder.expiresAt)
+        assertMsg "Price mismatch" (buyOrder.price >= sellOrder.price)
+        assertMsg "Insufficient sell amount" (sellOrder.amount >= buyOrder.amount)
+        archive buyOrderCid
+        archive sellOrderCid
+        pure ()

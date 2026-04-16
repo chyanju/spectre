@@ -1,0 +1,44 @@
+module Obsidian.SwapExecution where
+
+-- FIXED: Swap execution records activity for reward calculations.
+
+template SwapActivity
+  with
+    admin : Party
+    user : Party
+    poolId : Text
+    inputToken : Text
+    inputAmount : Decimal
+    outputAmount : Decimal
+    swapTime : Time
+  where
+    signatory admin
+
+template LiquidityPool
+  with
+    admin : Party
+    poolId : Text
+    reserveA : Decimal
+    reserveB : Decimal
+  where
+    signatory admin
+    ensure reserveA > 0.0 && reserveB > 0.0
+
+    choice Swap : (ContractId LiquidityPool, ContractId SwapActivity)
+      with
+        user : Party
+        inputToken : Text
+        inputAmount : Decimal
+      controller admin, user
+      do
+        assertMsg "Input must be positive" (inputAmount > 0.0)
+        let outputAmount = (reserveB * inputAmount) / (reserveA + inputAmount)
+        poolCid <- create this with
+          reserveA = reserveA + inputAmount
+          reserveB = reserveB - outputAmount
+        -- FIXED: Record swap activity for reward calculations
+        now <- getTime
+        activityCid <- create SwapActivity with
+          admin, user, poolId, inputToken, inputAmount, outputAmount
+          swapTime = now
+        pure (poolCid, activityCid)

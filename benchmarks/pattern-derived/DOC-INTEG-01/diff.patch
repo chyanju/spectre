@@ -1,0 +1,21 @@
+--- buggy/FactoryProxy.daml
++++ fixed/FactoryProxy.daml
+@@ -1,7 +1,5 @@
+--- DOC-INTEG-01 BUGGY: Missing expected-admin validation in factory proxy
+--- The proxy delegates to an underlying factory but does not verify that
+--- the admin party matches, allowing a malicious party to substitute
+--- a different factory and redirect operations.
++-- DOC-INTEG-01 FIXED: Added expected-admin validation
++-- The proxy now verifies the expected admin matches before delegating.
+ 
+ module Synthetic.FactoryProxy where
+ 
+@@ -19,7 +17,6 @@
+         amount : Int
+       controller caller
+       do
+-        -- BUG: does not check expectedAdmin == admin
+-        -- A caller could pass a mismatched expectedAdmin
++        assertMsg "Expected admin mismatch" (expectedAdmin == admin)
+         exercise factoryCid DoTransfer with caller; amount
+         pure ()

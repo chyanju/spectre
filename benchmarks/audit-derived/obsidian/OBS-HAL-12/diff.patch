@@ -1,0 +1,42 @@
+--- buggy/PoolCancellation.daml	2026-04-14 19:36:42.056783734 -0700
++++ fixed/PoolCancellation.daml	2026-04-14 19:36:44.833755086 -0700
+@@ -1,6 +1,16 @@
+ module Obsidian.PoolCancellation where
+ 
+--- BUGGY: Cancellation does not record the reason, reducing audit trail.
++-- FIXED: Cancellation records the reason for audit trail.
++
++template CancellationRecord
++  with
++    admin : Party
++    requester : Party
++    poolId : Text
++    reason : Text
++    cancelledAt : Time
++  where
++    signatory admin
+ 
+ template PoolCreationRequest
+   with
+@@ -17,9 +27,17 @@
+       controller admin
+       do pure ()
+ 
+-    choice CancelCreation : ()
++    choice CancelCreation : ContractId CancellationRecord
++      with
++        reason : Text
+       controller admin
+       do
+-        -- BUG: Just archives the request with no record of why.
+-        -- No audit trail for the cancellation decision.
+-        pure ()
++        -- FIXED: Record the cancellation reason on-ledger
++        assertMsg "Cancellation reason must not be empty" (reason /= "")
++        now <- getTime
++        create CancellationRecord with
++          admin
++          requester
++          poolId
++          reason
++          cancelledAt = now

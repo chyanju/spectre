@@ -1,0 +1,40 @@
+module Obsidian.PoolFactory where
+
+-- BUGGY: Pool creation does not enforce uniqueness of instrument pairs.
+
+template PoolFactory
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CreatePool : ContractId LiquidityPool
+      with
+        tokenA : Text
+        tokenB : Text
+        initialA : Decimal
+        initialB : Decimal
+      controller admin
+      do
+        -- BUG: No check for existing pool with same (tokenA, tokenB) pair.
+        -- Multiple pools can be created for the same pair, fragmenting liquidity.
+        assertMsg "Initial liquidity must be positive" (initialA > 0.0 && initialB > 0.0)
+        create LiquidityPool with
+          admin
+          tokenA
+          tokenB
+          reserveA = initialA
+          reserveB = initialB
+          lpSupply = initialA * initialB
+
+template LiquidityPool
+  with
+    admin : Party
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    lpSupply : Decimal
+  where
+    signatory admin
+    ensure reserveA >= 0.0 && reserveB >= 0.0

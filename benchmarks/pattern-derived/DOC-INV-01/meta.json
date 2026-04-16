@@ -1,0 +1,54 @@
+{
+  "id": "DOC-INV-01",
+  "title": "Asymmetric validation between paired execute and rollback paths",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Invariant Pattern - Symmetric Validation",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "EscrowedSwap Execute/Rollback",
+  "pattern_family": "invariant",
+  "pattern_name": "asymmetric_validation",
+  "severity": "low",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.TwoPhaseSwap"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "Two paired code paths (Execute and Rollback) that should maintain the same invariants apply different validation. Execute checks amount consistency; Rollback does not. This asymmetry can mask bugs or allow subtle state inconsistencies.",
+  "recommendation": "Apply the same set of validation assertions to both the happy path and the error/rollback path.",
+  "code_snippets": [
+    {
+      "label": "Rollback missing amount check",
+      "buggy_file": "buggy/TwoPhaseSwap.daml",
+      "fixed_file": "fixed/TwoPhaseSwap.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "invariant",
+    "description": "Paired choices (execute/rollback, commit/abort) must validate the same set of invariants.",
+    "static_signal": "Paired choices have different assertion sets",
+    "symbolic_property": "assertions(Execute) \u2286 assertions(Rollback) && assertions(Rollback) \u2286 assertions(Execute)"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "invariant",
+    "asymmetric",
+    "validation",
+    "execute-rollback",
+    "synthetic"
+  ],
+  "notes": "Common DAML validation pattern."
+}

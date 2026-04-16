@@ -1,0 +1,28 @@
+--- buggy/SettlementDeadline.daml	2026-04-14 19:33:31.533544856 -0700
++++ fixed/SettlementDeadline.daml	2026-04-14 19:33:33.784526712 -0700
+@@ -1,6 +1,6 @@
+ module Obsidian.SettlementDeadline where
+ 
+--- BUGGY: Settlement deadlines allow zero or negative duration windows.
++-- FIXED: Settlement deadlines validated to ensure positive execution window.
+ 
+ template SettlementConfig
+   with
+@@ -11,9 +11,8 @@
+   where
+     signatory admin
+     observer executor
+-    -- BUG: Only checks both times are set, but does NOT validate
+-    -- that executeAfter < executeBefore.
+-    -- This allows zero-duration or negative-duration windows.
++    -- FIXED: Ensure clause validates positive-duration window
++    ensure executeAfter < executeBefore
+ 
+     choice Execute : ()
+       controller executor
+@@ -21,5 +20,4 @@
+         now <- getTime
+         assertMsg "Too early" (now >= executeAfter)
+         assertMsg "Too late" (now < executeBefore)
+-        -- With executeAfter >= executeBefore, this is impossible to satisfy
+         pure ()

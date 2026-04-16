@@ -1,0 +1,29 @@
+module Temple.HoldingSplit where
+
+-- FIXED: Split operation returns both the requested portion and the remainder.
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+    choice Split : (ContractId Holding, Optional (ContractId Holding))
+      with
+        requestedAmount : Decimal
+      controller owner
+      do
+        assertMsg "Requested amount must be positive" (requestedAmount > 0.0)
+        assertMsg "Insufficient balance" (amount >= requestedAmount)
+        archive self
+        requestedCid <- create this with amount = requestedAmount
+        -- FIXED: Create and return remainder holding if there is leftover
+        remainderCid <- if amount > requestedAmount
+          then do
+            cid <- create this with amount = amount - requestedAmount
+            pure (Some cid)
+          else pure None
+        pure (requestedCid, remainderCid)

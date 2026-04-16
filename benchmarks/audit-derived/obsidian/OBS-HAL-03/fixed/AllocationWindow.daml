@@ -1,0 +1,34 @@
+module Obsidian.AllocationWindow where
+
+-- FIXED: Allocation uses the settlement model's execution window.
+
+template Settlement
+  with
+    admin : Party
+    executor : Party
+    executeAfter : Time
+    executeBefore : Time
+  where
+    signatory admin
+    observer executor
+    ensure executeAfter < executeBefore
+
+template PoolAllocation
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+    settlementCid : ContractId Settlement
+  where
+    signatory admin
+    observer executor
+
+    choice ExecuteAllocation : ()
+      controller executor
+      do
+        settlement <- fetch settlementCid
+        now <- getTime
+        -- FIXED: Use settlement model's time window directly
+        assertMsg "Settlement window not open" (now >= settlement.executeAfter)
+        assertMsg "Settlement window closed" (now < settlement.executeBefore)
+        pure ()

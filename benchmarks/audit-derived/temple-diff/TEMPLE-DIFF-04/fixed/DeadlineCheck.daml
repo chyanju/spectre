@@ -1,0 +1,23 @@
+module Temple.DeadlineCheck where
+
+-- FIXED: Distinct handling and messaging for None vs Some deadline.
+
+template TimedAction
+  with
+    admin : Party
+    actor : Party
+    deadline : Optional Time
+    label : Text
+  where
+    signatory admin
+    observer actor
+
+    choice Execute : ()
+      controller actor
+      do
+        now <- getTime
+        -- FIXED: Handle None and Some with distinct, clear messages
+        case deadline of
+          Some d -> assertMsg (label <> " deadline has passed (expired at " <> show d <> ")") (now < d)
+          None -> pure ()  -- No deadline, no assertion needed
+        pure ()

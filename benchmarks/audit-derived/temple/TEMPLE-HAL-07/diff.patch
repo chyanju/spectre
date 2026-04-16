@@ -1,0 +1,24 @@
+--- buggy/MakerTaker.daml	2026-04-14 19:24:44.789741169 -0700
++++ fixed/MakerTaker.daml	2026-04-14 19:24:47.746687484 -0700
+@@ -1,7 +1,6 @@
+ module Temple.MakerTaker where
+ 
+--- BUGGY: Maker/taker role assignment depends on the order of input parameters,
+--- which is non-deterministic when orders are submitted concurrently.
++-- FIXED: Maker/taker assignment uses deterministic criteria (lower price = maker).
+ 
+ data TradeRole = Maker | Taker deriving (Eq, Show)
+ 
+@@ -20,7 +19,8 @@
+     choice AssignRoles : (TradeRole, TradeRole)
+       controller admin
+       do
+-        -- BUG: The first parameter is always assigned Maker,
+-        -- but which order comes first is non-deterministic.
+-        -- If two orders arrive simultaneously, the assignment is arbitrary.
+-        pure (Maker, Taker)
++        -- FIXED: Deterministic assignment based on price.
++        -- Lower price order is the maker (providing liquidity).
++        if order1Price <= order2Price
++          then pure (Maker, Taker)
++          else pure (Taker, Maker)

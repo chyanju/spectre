@@ -1,0 +1,40 @@
+-- DOC-LIFE-01 BUGGY: Orphaned reference after archive
+-- The owner can unilaterally unlock the asset via ExpireLock, but
+-- any TransferOrder referencing the locked asset's contract ID
+-- is NOT archived, leaving an orphaned dangling reference.
+
+module Synthetic.LockedAsset where
+
+template LockedAsset
+  with
+    owner : Party
+    custodian : Party
+    amount : Int
+    lockExpiry : Time
+  where
+    signatory custodian, owner
+    ensure amount > 0
+
+    choice ExpireLock : ContractId UnlockedAsset
+      controller owner
+      do
+        now <- getTime
+        assertMsg "Lock not expired" (now >= lockExpiry)
+        -- BUG: archives the locked asset, but any TransferOrder
+        -- pointing to this contract ID now has a dangling reference
+        create UnlockedAsset with owner; custodian; amount
+
+template TransferOrder
+  with
+    sender : Party
+    receiver : Party
+    lockedAssetCid : ContractId LockedAsset  -- may become dangling!
+  where
+    signatory sender
+    observer receiver
+
+    choice Execute : ()
+      controller receiver
+      do
+        locked <- fetch lockedAssetCid  -- FAILS if asset was unlocked
+        pure ()

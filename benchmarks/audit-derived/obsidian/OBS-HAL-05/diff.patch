@@ -1,0 +1,47 @@
+--- buggy/SwapExecution.daml	2026-04-14 19:33:22.923613599 -0700
++++ fixed/SwapExecution.daml	2026-04-14 19:33:27.282578932 -0700
+@@ -1,6 +1,18 @@
+ module Obsidian.SwapExecution where
+ 
+--- BUGGY: Swap execution does not record activity needed for reward calculation.
++-- FIXED: Swap execution records activity for reward calculations.
++
++template SwapActivity
++  with
++    admin : Party
++    user : Party
++    poolId : Text
++    inputToken : Text
++    inputAmount : Decimal
++    outputAmount : Decimal
++    swapTime : Time
++  where
++    signatory admin
+ 
+ template LiquidityPool
+   with
+@@ -12,7 +24,7 @@
+     signatory admin
+     ensure reserveA > 0.0 && reserveB > 0.0
+ 
+-    choice Swap : ContractId LiquidityPool
++    choice Swap : (ContractId LiquidityPool, ContractId SwapActivity)
+       with
+         user : Party
+         inputToken : Text
+@@ -21,8 +33,12 @@
+       do
+         assertMsg "Input must be positive" (inputAmount > 0.0)
+         let outputAmount = (reserveB * inputAmount) / (reserveA + inputAmount)
+-        -- BUG: Swap completes but no activity record is created.
+-        -- Users who swap will not be credited for featured rewards.
+-        create this with
++        poolCid <- create this with
+           reserveA = reserveA + inputAmount
+           reserveB = reserveB - outputAmount
++        -- FIXED: Record swap activity for reward calculations
++        now <- getTime
++        activityCid <- create SwapActivity with
++          admin, user, poolId, inputToken, inputAmount, outputAmount
++          swapTime = now
++        pure (poolCid, activityCid)

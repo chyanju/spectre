@@ -1,0 +1,50 @@
+{
+  "id": "CANTON-REL-01",
+  "title": "Mixed LF interface/contract versions cause serialization inconsistency",
+  "artifact_type": "release-notes",
+  "source_kind": "github-release",
+  "source_title": "Canton 2.10.1 Release Notes - Issue 25-005",
+  "source_url": "https://github.com/digital-asset/canton/releases",
+  "repo": "digital-asset/canton",
+  "date": "2025-01-01",
+  "target_object": "interface choices / transaction serialization",
+  "pattern_family": "upgrade",
+  "pattern_name": "mixed_lf_version_incompatibility",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "high",
+  "explicit_bugfix": true,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": false,
+  "affected_modules": [
+    "interface choices",
+    "package/LF version compatibility",
+    "transaction serialization"
+  ],
+  "before_version": "2.10.0",
+  "after_version": "2.10.1",
+  "before_after_available": false,
+  "description": "Mixed LF interface/contract versions (LF 1.15 interface on LF 1.17 contracts) cause serialization and key hashing inconsistency. When an interface defined in one LF version is used on contracts compiled with a different LF version, the serialization format and contract key hashing can differ, leading to subtle correctness bugs where the same contract may produce different hashes depending on the code path.",
+  "recommendation": "Ensure consistent LF versioning across interfaces and contracts. Canton 2.10.1 adds validation to reject mixed-version combinations that cause serialization inconsistency.",
+  "code_snippets": [],
+  "oracle": {
+    "type": "correctness",
+    "description": "Interface choice invocations must produce consistent serialization regardless of the LF version combination of interface and contract packages.",
+    "static_signal": "Detect mixed LF version usage between interface definitions and implementing contracts",
+    "symbolic_property": "forall i c. interface_lf_version(i) != contract_lf_version(c) => serialize(invoke(i, c)) == serialize_expected(i, c)"
+  },
+  "good_for_static": false,
+  "good_for_symbolic": false,
+  "good_for_benchmark": false,
+  "tags": [
+    "lf-version",
+    "interface",
+    "serialization",
+    "contract-key",
+    "hashing",
+    "canton-runtime"
+  ],
+  "notes": "This is a Canton runtime bug, not a DAML contract-level bug. Relevant as a benchmark for package/upgrade validation tools. | Marked out-of-scope: runtime-layer bug, not detectable via contract-level static analysis or symbolic execution."
+}

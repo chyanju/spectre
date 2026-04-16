@@ -1,0 +1,48 @@
+{
+  "id": "CANTON-REL-03",
+  "title": "Confidential config fields logged in plain text",
+  "artifact_type": "release-notes",
+  "source_kind": "github-release",
+  "source_title": "Canton 2.10.1 Release Notes - Issue 25-006",
+  "source_url": "https://github.com/digital-asset/canton/releases",
+  "repo": "digital-asset/canton",
+  "date": "2025-01-01",
+  "target_object": "configuration logging / secret handling",
+  "pattern_family": "diagnostics",
+  "pattern_name": "secret_leakage_in_logs",
+  "severity": "high",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "high",
+  "explicit_bugfix": true,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": false,
+  "affected_modules": [
+    "configuration subsystem",
+    "logging"
+  ],
+  "before_version": "2.10.0",
+  "after_version": "2.10.1",
+  "before_after_available": false,
+  "description": "Confidential configuration fields (e.g., database passwords, API keys) may be logged in plain text under specific config substitution/override patterns. When configuration values are resolved through environment variable substitution or override chains, the logging framework may serialize the resolved (secret) values rather than the masked placeholders.",
+  "recommendation": "Upgrade to Canton 2.10.1 which masks sensitive configuration fields before logging. Review existing log output for exposed secrets.",
+  "code_snippets": [],
+  "oracle": {
+    "type": "security",
+    "description": "Configuration values marked as sensitive must never appear in log output in plain text.",
+    "static_signal": "Log statements that serialize config objects without field-level masking",
+    "symbolic_property": "forall field. is_sensitive(field) => not(appears_in_log(resolve(field)))"
+  },
+  "good_for_static": false,
+  "good_for_symbolic": false,
+  "good_for_benchmark": false,
+  "tags": [
+    "secret-leakage",
+    "logging",
+    "configuration",
+    "operational-security",
+    "canton-runtime"
+  ],
+  "notes": "Not a DAML contract bug but an execution environment security issue. Relevant for operational security benchmarking. | Marked out-of-scope: runtime-layer bug, not detectable via contract-level static analysis or symbolic execution."
+}

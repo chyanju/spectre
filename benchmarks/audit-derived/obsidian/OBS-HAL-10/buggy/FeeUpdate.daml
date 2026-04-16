@@ -1,0 +1,40 @@
+module Obsidian.FeeUpdate where
+
+-- BUGGY: Fee update does not validate that the new fee still permits swaps.
+
+template FeeConfig
+  with
+    admin : Party
+    feeRateBps : Int  -- basis points: 30 = 0.3%
+  where
+    signatory admin
+    ensure feeRateBps >= 0
+
+    choice UpdateFee : ContractId FeeConfig
+      with
+        newFeeRateBps : Int
+      controller admin
+      do
+        -- BUG: Only checks non-negative, but allows 10000 (100% fee)
+        -- or higher, which would make all swaps return 0 or negative output.
+        assertMsg "Fee must be non-negative" (newFeeRateBps >= 0)
+        create this with feeRateBps = newFeeRateBps
+
+template SwapExecutor
+  with
+    admin : Party
+    feeConfigCid : ContractId FeeConfig
+  where
+    signatory admin
+
+    choice ExecuteSwap : Decimal
+      with
+        inputAmount : Decimal
+      controller admin
+      do
+        feeConfig <- fetch feeConfigCid
+        let fee = inputAmount * intToDecimal feeConfig.feeRateBps / 10000.0
+        let netAmount = inputAmount - fee
+        -- With feeRateBps = 10000, netAmount = 0.0 — swap produces nothing
+        assertMsg "Output must be positive" (netAmount > 0.0)
+        pure netAmount

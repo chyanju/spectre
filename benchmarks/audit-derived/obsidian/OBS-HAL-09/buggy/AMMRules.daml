@@ -1,0 +1,38 @@
+module Obsidian.AMMRules where
+
+-- BUGGY: Once AMMRules or participation requests are created,
+-- there is no explicit revocation choice. Only implicit Archive exists,
+-- which requires all signatories and may not match the desired authorization.
+
+template AMMRules
+  with
+    admin : Party
+    participant : Party
+    feeRateBps : Int
+    active : Bool
+  where
+    signatory admin, participant
+    -- BUG: No explicit revocation/deactivation choice.
+    -- To revoke, both admin AND participant must agree to Archive,
+    -- but the admin should be able to revoke unilaterally.
+
+template ParticipationRequest
+  with
+    requester : Party
+    admin : Party
+    poolId : Text
+  where
+    signatory requester
+    observer admin
+    -- BUG: No cancellation choice for the requester.
+    -- Once submitted, the request persists until admin acts on it.
+    -- If the requester changes their mind, they cannot cancel.
+
+    choice ApproveRequest : ContractId AMMRules
+      controller admin
+      do
+        create AMMRules with
+          admin
+          participant = requester
+          feeRateBps = 30
+          active = True

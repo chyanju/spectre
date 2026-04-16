@@ -1,0 +1,43 @@
+module Temple.AllocationMerge where
+
+-- FIXED: Allocation consolidation asserts all inputs share the same
+-- sender and receiver before merging.
+
+template Allocation
+  with
+    admin : Party
+    sender : Party
+    receiver : Party
+    amount : Decimal
+  where
+    signatory admin, sender
+    observer receiver
+    ensure amount > 0.0
+
+template AllocationConsolidator
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice Consolidate : ContractId Allocation
+      with
+        allocationCids : [ContractId Allocation]
+      controller admin
+      do
+        allocations <- forA allocationCids $ \cid -> do
+          a <- fetch cid
+          archive cid
+          pure a
+        assertMsg "At least one allocation required" (not (null allocations))
+        let first = head allocations
+        -- FIXED: Assert all allocations share the same sender and receiver
+        forA_ allocations $ \a -> do
+          assertMsg "All allocations must have the same sender" (a.sender == first.sender)
+          assertMsg "All allocations must have the same receiver" (a.receiver == first.receiver)
+        let totalAmount = foldl (\acc a -> acc + a.amount) 0.0 allocations
+        create Allocation with
+          admin = first.admin
+          sender = first.sender
+          receiver = first.receiver
+          amount = totalAmount

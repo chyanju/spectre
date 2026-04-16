@@ -1,0 +1,40 @@
+module Obsidian.PoolLiquidity where
+
+-- FIXED: Pool creation validates effective liquidity after rounding.
+
+template LiquidityPool
+  with
+    admin : Party
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    priceRatio : Decimal
+  where
+    signatory admin
+    -- FIXED: Also validate priceRatio is positive
+    ensure reserveA > 0.0 && reserveB > 0.0 && priceRatio > 0.0
+
+template PoolFactory
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CreatePool : ContractId LiquidityPool
+      with
+        tokenA : Text
+        tokenB : Text
+        initialA : Decimal
+        initialB : Decimal
+      controller admin
+      do
+        assertMsg "Initial amounts must be positive" (initialA > 0.0 && initialB > 0.0)
+        let ratio = initialA / initialB
+        -- FIXED: Validate computed ratio is still positive after rounding
+        assertMsg "Price ratio too small after rounding" (ratio > 0.0)
+        create LiquidityPool with
+          admin, tokenA, tokenB
+          reserveA = initialA
+          reserveB = initialB
+          priceRatio = ratio

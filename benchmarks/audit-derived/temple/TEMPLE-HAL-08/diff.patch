@@ -1,0 +1,33 @@
+--- buggy/OrderValidation.daml	2026-04-14 19:24:51.650616596 -0700
++++ fixed/OrderValidation.daml	2026-04-14 19:24:55.431547945 -0700
+@@ -1,7 +1,7 @@
+ module Temple.OrderValidation where
+ 
+--- BUGGY: Choice named "ValidateOrder" actually performs state mutations,
+--- not just validation. This misleads developers and auditors.
++-- FIXED: Renamed choice to accurately reflect its behavior (state mutation).
++-- Added a separate non-consuming validation choice.
+ 
+ template Order
+   with
+@@ -14,12 +14,16 @@
+     signatory admin, owner
+     ensure amount > 0.0
+ 
+-    -- BUG: Name says "Validate" but it archives and recreates the contract,
+-    -- which is a state mutation, not a read-only validation.
+-    choice ValidateOrder : ContractId Order
++    -- FIXED: Non-consuming choice for pure validation (read-only)
++    nonconsuming choice CheckOrderValidity : Bool
++      controller admin
++      do
++        pure (amount > 0.0 && price > 0.0)
++
++    -- FIXED: Renamed to clearly indicate state mutation
++    choice MarkOrderValidated : ContractId Order
+       controller admin
+       do
+         assertMsg "Amount must be positive" (amount > 0.0)
+         assertMsg "Price must be positive" (price > 0.0)
+-        -- Mutating state — this is NOT just validation!
+         create this with validated = True

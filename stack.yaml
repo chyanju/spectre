@@ -1,0 +1,8 @@
+resolver: lts-21.25
+system-ghc: true
+install-ghc: false
+
+packages:
+  - .
+
+extra-deps: []

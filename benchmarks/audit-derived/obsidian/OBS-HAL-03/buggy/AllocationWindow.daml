@@ -1,0 +1,38 @@
+module Obsidian.AllocationWindow where
+
+-- BUGGY: Allocation enforces a stricter time window than the settlement,
+-- causing valid settlement operations to fail.
+
+template Settlement
+  with
+    admin : Party
+    executor : Party
+    executeAfter : Time
+    executeBefore : Time
+  where
+    signatory admin
+    observer executor
+    ensure executeAfter < executeBefore
+
+template PoolAllocation
+  with
+    admin : Party
+    executor : Party
+    amount : Decimal
+    allocationDeadline : Time
+    settlementCid : ContractId Settlement
+  where
+    signatory admin
+    observer executor
+
+    choice ExecuteAllocation : ()
+      controller executor
+      do
+        settlement <- fetch settlementCid
+        now <- getTime
+        -- BUG: Uses allocationDeadline which is stricter than
+        -- settlement.executeBefore. Valid settlements that are
+        -- within the settlement window but past allocationDeadline fail.
+        assertMsg "Allocation deadline passed" (now < allocationDeadline)
+        assertMsg "Settlement window not open" (now >= settlement.executeAfter)
+        pure ()

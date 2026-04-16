@@ -1,0 +1,55 @@
+{
+  "id": "DOC-DIAG-01",
+  "title": "Audit event with actor as signatory allows evidence deletion",
+  "artifact_type": "synthetic",
+  "source_kind": "pattern-documentation",
+  "source_title": "DAML Diagnostics Pattern - Audit Record Integrity",
+  "source_url": null,
+  "repo": null,
+  "date": null,
+  "target_object": "AuditEntry template",
+  "pattern_family": "diagnostics",
+  "pattern_name": "deletable_audit_record",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "synthetic",
+  "explicit_bugfix": false,
+  "explicit_security": true,
+  "inferred_pattern": false,
+  "synthetic": true,
+  "affected_modules": [
+    "Synthetic.AuditLog"
+  ],
+  "before_version": null,
+  "after_version": null,
+  "before_after_available": true,
+  "description": "An audit entry template has the acting party as signatory. In DAML, signatories can unilaterally archive contracts they have signed. This means the actor can delete their own audit records, defeating the purpose of the audit trail.",
+  "recommendation": "Make the admin/governor the signatory of audit records, and the actor an observer. This prevents actors from deleting evidence of their own actions.",
+  "code_snippets": [
+    {
+      "label": "Actor can archive audit record",
+      "buggy_file": "buggy/AuditLog.daml",
+      "fixed_file": "fixed/AuditLog.daml",
+      "diff_file": "diff.patch"
+    }
+  ],
+  "oracle": {
+    "type": "authorization",
+    "description": "Audit records must not be archivable by the party whose actions they record.",
+    "static_signal": "Audit/event template has the acting party as sole signatory",
+    "symbolic_property": "forall e. audit_record(e) => not(can_archive(e.actor, e))"
+  },
+  "good_for_static": true,
+  "good_for_symbolic": true,
+  "good_for_benchmark": true,
+  "tags": [
+    "diagnostics",
+    "audit",
+    "signatory",
+    "archive",
+    "evidence-deletion",
+    "synthetic"
+  ],
+  "notes": "Common authorization pattern in DAML contracts."
+}

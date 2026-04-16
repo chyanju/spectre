@@ -1,0 +1,49 @@
+module Temple.OrderWorkflow where
+
+-- BUGGY: When locking all holdings including the remainder, the remainder
+-- is not tracked, leading to inconsistent state after the lock operation.
+
+data OrderStatus = Open | Filled | Cancelled deriving (Eq, Show)
+
+template Holding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template LockedHolding
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    lockHolder : Party
+  where
+    signatory admin, owner
+    ensure amount > 0.0
+
+template OrderRequest
+  with
+    owner : Party
+    admin : Party
+    amount : Decimal
+    holdingCids : [ContractId Holding]
+  where
+    signatory admin, owner
+
+    choice LockForOrder : [ContractId LockedHolding]
+      controller admin
+      do
+        -- BUG: Locks all input holdings for the exact order amount,
+        -- but if total input > order amount, the remainder is lost.
+        -- No change holding is created for the difference.
+        forA holdingCids $ \cid -> do
+          h <- fetch cid
+          archive cid
+          create LockedHolding with
+            owner = h.owner
+            admin = h.admin
+            amount = h.amount
+            lockHolder = admin

@@ -1,0 +1,20 @@
+--- buggy/TokenAdmin.daml
++++ fixed/TokenAdmin.daml
+@@ -1,6 +1,5 @@
+--- DOC-AUTH-01 BUGGY: Missing role authorization check
+--- The BurnFrom choice allows any party to burn tokens from any account
+--- without verifying the caller has the BURNER_ROLE.
++-- DOC-AUTH-01 FIXED: Added BURNER_ROLE authorization check
++-- The BurnFrom choice now verifies the caller has the required role.
+ 
+ module Synthetic.TokenAdmin where
+ 
+@@ -21,7 +20,7 @@
+         amount : Int
+       controller caller, admin
+       do
+-        -- BUG: No role check. Any party can call BurnFrom.
++        assertMsg "Missing BURNER_ROLE" (Set.member caller roles.burners)
+         assertMsg "Amount must be positive" (amount > 0)
+         assertMsg "Insufficient supply" (totalSupply >= amount)
+         create this with totalSupply = totalSupply - amount

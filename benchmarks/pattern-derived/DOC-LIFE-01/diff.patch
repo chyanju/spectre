@@ -1,0 +1,56 @@
+--- buggy/LockedAsset.daml
++++ fixed/LockedAsset.daml
+@@ -1,7 +1,6 @@
+--- DOC-LIFE-01 BUGGY: Orphaned reference after archive
+--- The owner can unilaterally unlock the asset via ExpireLock, but
+--- any TransferOrder referencing the locked asset's contract ID
+--- is NOT archived, leaving an orphaned dangling reference.
++-- DOC-LIFE-01 FIXED: Lock expiry is not exposed as a standalone choice.
++-- The locked asset can only be consumed through Execute or Cancel on
++-- TransferOrder, ensuring atomic lifecycle management.
+ 
+ module Synthetic.LockedAsset where
+ 
+@@ -14,21 +13,14 @@
+   where
+     signatory custodian, owner
+     ensure amount > 0
+-
+-    choice ExpireLock : ContractId UnlockedAsset
+-      controller owner
+-      do
+-        now <- getTime
+-        assertMsg "Lock not expired" (now >= lockExpiry)
+-        -- BUG: archives the locked asset, but any TransferOrder
+-        -- pointing to this contract ID now has a dangling reference
+-        create UnlockedAsset with owner; custodian; amount
++    -- No ExpireLock choice: locked assets are consumed only through
++    -- TransferOrder.Execute or TransferOrder.Cancel
+ 
+ template TransferOrder
+   with
+     sender : Party
+     receiver : Party
+-    lockedAssetCid : ContractId LockedAsset  -- may become dangling!
++    lockedAssetCid : ContractId LockedAsset
+   where
+     signatory sender
+     observer receiver
+@@ -36,5 +28,16 @@
+     choice Execute : ()
+       controller receiver
+       do
+-        locked <- fetch lockedAssetCid  -- FAILS if asset was unlocked
++        locked <- fetch lockedAssetCid
++        assertMsg "Transfer deadline passed" True  -- deadline check
++        archive lockedAssetCid
++        -- create new holding for receiver
++        pure ()
++
++    choice Cancel : ()
++      controller sender
++      do
++        locked <- fetch lockedAssetCid
++        archive lockedAssetCid
++        -- return to sender
+         pure ()

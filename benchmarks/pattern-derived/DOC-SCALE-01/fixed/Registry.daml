@@ -1,0 +1,30 @@
+-- DOC-SCALE-01 FIXED: Separate per-party contracts instead of unbounded set
+-- Each party gets their own User contract, keeping the admin contract
+-- constant-size and avoiding observer bloat.
+
+module Synthetic.Registry where
+
+template PartyRegistry
+  with
+    admin : Party
+    partyCount : Int
+  where
+    signatory admin
+    -- No unbounded observer set
+
+    choice Register : (ContractId PartyRegistry, ContractId UserRecord)
+      with
+        party : Party
+      controller admin
+      do
+        userCid <- create UserRecord with admin; party
+        adminCid <- create this with partyCount = partyCount + 1
+        pure (adminCid, userCid)
+
+template UserRecord
+  with
+    admin : Party
+    party : Party
+  where
+    signatory admin
+    observer party

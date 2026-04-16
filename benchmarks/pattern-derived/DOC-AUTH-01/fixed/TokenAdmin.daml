@@ -1,0 +1,26 @@
+-- DOC-AUTH-01 FIXED: Added BURNER_ROLE authorization check
+-- The BurnFrom choice now verifies the caller has the required role.
+
+module Synthetic.TokenAdmin where
+
+import DA.Set as Set
+
+template TokenAdmin
+  with
+    admin : Party
+    roles : Roles
+    totalSupply : Int
+  where
+    signatory admin
+
+    choice BurnFrom : ContractId TokenAdmin
+      with
+        caller : Party
+        account : Party
+        amount : Int
+      controller caller, admin
+      do
+        assertMsg "Missing BURNER_ROLE" (Set.member caller roles.burners)
+        assertMsg "Amount must be positive" (amount > 0)
+        assertMsg "Insufficient supply" (totalSupply >= amount)
+        create this with totalSupply = totalSupply - amount

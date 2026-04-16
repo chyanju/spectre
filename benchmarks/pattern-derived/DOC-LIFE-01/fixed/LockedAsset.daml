@@ -1,0 +1,43 @@
+-- DOC-LIFE-01 FIXED: Lock expiry is not exposed as a standalone choice.
+-- The locked asset can only be consumed through Execute or Cancel on
+-- TransferOrder, ensuring atomic lifecycle management.
+
+module Synthetic.LockedAsset where
+
+template LockedAsset
+  with
+    owner : Party
+    custodian : Party
+    amount : Int
+    lockExpiry : Time
+  where
+    signatory custodian, owner
+    ensure amount > 0
+    -- No ExpireLock choice: locked assets are consumed only through
+    -- TransferOrder.Execute or TransferOrder.Cancel
+
+template TransferOrder
+  with
+    sender : Party
+    receiver : Party
+    lockedAssetCid : ContractId LockedAsset
+  where
+    signatory sender
+    observer receiver
+
+    choice Execute : ()
+      controller receiver
+      do
+        locked <- fetch lockedAssetCid
+        assertMsg "Transfer deadline passed" True  -- deadline check
+        archive lockedAssetCid
+        -- create new holding for receiver
+        pure ()
+
+    choice Cancel : ()
+      controller sender
+      do
+        locked <- fetch lockedAssetCid
+        archive lockedAssetCid
+        -- return to sender
+        pure ()

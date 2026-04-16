@@ -1,0 +1,49 @@
+{
+  "id": "DAML-REL-01",
+  "title": "Mixed LF packages cause INVALID_ARGUMENT or unexpected model behavior",
+  "artifact_type": "release-notes",
+  "source_kind": "official-blog",
+  "source_title": "Daml 2.10.1 Release Notes",
+  "source_url": "https://blog.digitalasset.com/developers/release-notes/2.10.1",
+  "repo": "digital-asset/daml",
+  "date": "2025-01-01",
+  "target_object": "package compatibility / upgrade validation",
+  "pattern_family": "upgrade",
+  "pattern_name": "mixed_package_version_validation_gap",
+  "severity": "medium",
+  "bvss_score": null,
+  "bvss_vector": null,
+  "evidence_strength": "high",
+  "explicit_bugfix": true,
+  "explicit_security": false,
+  "inferred_pattern": false,
+  "synthetic": false,
+  "affected_modules": [
+    "package loading",
+    "upgrade validation",
+    "LF compatibility"
+  ],
+  "before_version": "2.10.0",
+  "after_version": "2.10.1",
+  "before_after_available": false,
+  "description": "Mixed LF packages uploaded to a participant may cause INVALID_ARGUMENT errors or unexpected model behavior at runtime. Before 2.10.1, there was no startup-time validation to detect incompatible package combinations. The flag unsafe-disable-upgrade-validation=true could bypass remaining guardrails. Daml 2.10.1 adds startup-time package compatibility validation and documents the risks of disabling upgrade validation.",
+  "recommendation": "Upgrade to Daml 2.10.1 for startup-time package compatibility validation. Do not use unsafe-disable-upgrade-validation=true in production.",
+  "code_snippets": [],
+  "oracle": {
+    "type": "correctness",
+    "description": "All uploaded packages must be validated for mutual LF version compatibility at startup time.",
+    "static_signal": "Detection of mixed LF version packages in the same participant",
+    "symbolic_property": "forall p1 p2. uploaded(p1) && uploaded(p2) => lf_compatible(p1, p2)"
+  },
+  "good_for_static": false,
+  "good_for_symbolic": false,
+  "good_for_benchmark": false,
+  "tags": [
+    "lf-version",
+    "package-validation",
+    "upgrade-safety",
+    "invalid-argument",
+    "daml-runtime"
+  ],
+  "notes": "Daml SDK-level bug. Related to CANTON-REL-01. Demonstrates need for package-level compatibility analysis tools. | Marked out-of-scope: runtime-layer bug, not detectable via contract-level static analysis or symbolic execution."
+}

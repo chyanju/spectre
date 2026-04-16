@@ -1,0 +1,41 @@
+--- buggy/TokenV1.daml
++++ fixed/TokenV1.daml
+@@ -1,8 +1,6 @@
+--- DOC-UPGRADE-01 BUGGY: Breaking interface change without version guard
+--- TokenV2 adds a new field (metadata) to the template but the interface
+--- view implementation does not account for it, causing V1 consumers to
+--- receive incorrect or missing data when interacting with V2 contracts
+--- through the V1 interface.
++-- DOC-UPGRADE-01 FIXED: Versioned interface view with metadata support
++-- TokenV2 uses a versioned view that includes the metadata field.
++-- V1 consumers receive a compatibility wrapper.
+ 
+ module Synthetic.TokenV1 where
+ 
+@@ -10,20 +8,19 @@
+   with
+     owner : Party
+     amount : Int
++    metadataOpt : Optional Text  -- backward-compatible extension
+   deriving (Eq, Show)
+ 
+--- V2 template with added metadata field
+ template TokenV2
+   with
+     owner : Party
+     amount : Int
+-    metadata : Text  -- new field in V2
++    metadata : Text
+   where
+     signatory owner
+ 
+-    -- BUG: interface view still uses V1 shape, silently drops metadata
+-    -- V1 consumers fetching via interface get no indication that
+-    -- metadata exists, potentially missing critical information
+     interface instance Token for TokenV2 where
+-      view = TokenView with owner; amount
+-      -- metadata is silently dropped
++      view = TokenView with
++        owner
++        amount
++        metadataOpt = Some metadata  -- FIXED: metadata is included

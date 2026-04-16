@@ -1,0 +1,42 @@
+module Obsidian.PoolLiquidity where
+
+-- BUGGY: Pool creation checks input amounts are positive but does not
+-- verify that effective liquidity after rounding is still positive.
+
+template LiquidityPool
+  with
+    admin : Party
+    tokenA : Text
+    tokenB : Text
+    reserveA : Decimal
+    reserveB : Decimal
+    priceRatio : Decimal
+  where
+    signatory admin
+    -- BUG: Checks reserveA and reserveB but not the computed priceRatio.
+    -- With very small amounts, priceRatio can round to 0.0
+    ensure reserveA > 0.0 && reserveB > 0.0
+
+template PoolFactory
+  with
+    admin : Party
+  where
+    signatory admin
+
+    choice CreatePool : ContractId LiquidityPool
+      with
+        tokenA : Text
+        tokenB : Text
+        initialA : Decimal
+        initialB : Decimal
+      controller admin
+      do
+        assertMsg "Initial amounts must be positive" (initialA > 0.0 && initialB > 0.0)
+        -- BUG: If initialA is 0.0000000001 and initialB is 999999999.0,
+        -- priceRatio rounds to 0.0, creating a degenerate pool.
+        let ratio = initialA / initialB
+        create LiquidityPool with
+          admin, tokenA, tokenB
+          reserveA = initialA
+          reserveB = initialB
+          priceRatio = ratio

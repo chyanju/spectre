@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DAML Bug Benchmark Case",
+  "description": "Unified schema for DAML security/correctness benchmark cases derived from audits, release notes, documentation patterns, and public codebases.",
+  "type": "object",
+  "required": ["id", "title", "artifact_type", "source_kind", "pattern_family", "severity", "evidence_strength"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier. Convention: SOURCE-ID (e.g. TEMPLE-HAL-03, CANTON-REL-2.9.0-01, DOC-AUTH-01)."
+    },
+    "title": {
+      "type": "string",
+      "description": "Short descriptive title of the finding or pattern."
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": ["finding", "architectural_observation", "release_note_bugfix", "pattern_example", "unlabeled_corpus"],
+      "description": "What kind of benchmark artifact this represents."
+    },
+    "source_kind": {
+      "type": "string",
+      "enum": ["audit_report", "feedback_review", "release_notes", "documentation", "public_repo"],
+      "description": "Origin category of the evidence."
+    },
+    "source_title": {
+      "type": "string",
+      "description": "Human-readable name of the source document or report."
+    },
+    "source_url": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "Public URL of the source, or null if the source is private/local."
+    },
+    "repo": {
+      "type": ["string", "null"],
+      "description": "Repository identifier (e.g. 'digital-asset/canton')."
+    },
+    "date": {
+      "type": ["string", "null"],
+      "format": "date",
+      "description": "Date of the finding, report, or release (ISO 8601)."
+    },
+    "target_object": {
+      "type": "string",
+      "description": "The primary DAML template, choice, or function affected (e.g. 'TokenAdmin.MintTokens')."
+    },
+    "affected_modules": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of DAML module files affected (e.g. ['Temple/Transfer.daml', 'Temple/Registry.daml'])."
+    },
+    "pattern_family": {
+      "type": "string",
+      "enum": ["auth", "visibility", "temporal", "lifecycle", "invariant", "scalability", "upgrade", "integration", "diagnostics"],
+      "description": "Top-level bug pattern family. auth=authorization/signatory; visibility=observer/disclosure; temporal=time/deadline; lifecycle=create/archive/state-machine; invariant=data-consistency/validation; scalability=growth/DoS; upgrade=package/version; integration=API/spec-conformance; diagnostics=error-messages/audit-trail/dead-code."
+    },
+    "pattern_name": {
+      "type": "string",
+      "description": "Specific pattern name within the family (e.g. 'missing_observer', 'phase_separation_violation', 'unilateral_archive')."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "informational"],
+      "description": "Severity as assessed by the source (or inferred for non-audit sources)."
+    },
+    "bvss_score": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 10,
+      "description": "BVSS score from the audit report, if available."
+    },
+    "bvss_vector": {
+      "type": ["string", "null"],
+      "description": "Full BVSS vector string (e.g. 'AO:A/AC:L/AX:L/R:N/S:U/C:N/A:M/I:M/D:N/Y:N')."
+    },
+    "evidence_strength": {
+      "type": "string",
+      "enum": ["strong", "moderate", "weak", "synthetic"],
+      "description": "How confident we are that this represents a real bug/pattern. strong=auditor-confirmed finding with code; moderate=release-note or architectural review; weak=inferred from docs/changelog; synthetic=manually constructed example."
+    },
+    "explicit_bugfix": {
+      "type": "boolean",
+      "description": "Whether a concrete code fix exists and is referenced."
+    },
+    "explicit_security": {
+      "type": "boolean",
+      "description": "Whether the source explicitly labels this as a security issue."
+    },
+    "inferred_pattern": {
+      "type": "boolean",
+      "description": "Whether the pattern classification was inferred by us (true) or stated by the source (false)."
+    },
+    "synthetic": {
+      "type": "boolean",
+      "description": "Whether the DAML code samples were synthetically constructed rather than extracted from real code."
+    },
+    "before_version": {
+      "type": ["string", "null"],
+      "description": "Git commit hash or version tag of the vulnerable/pre-fix state."
+    },
+    "after_version": {
+      "type": ["string", "null"],
+      "description": "Git commit hash or version tag of the fixed/post-fix state."
+    },
+    "before_after_available": {
+      "type": "boolean",
+      "description": "Whether we have both buggy and fixed code samples for this case."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed technical description of the bug or pattern."
+    },
+    "recommendation": {
+      "type": "string",
+      "description": "Recommended fix or mitigation as stated by the source."
+    },
+    "code_snippets": {
+      "type": "object",
+      "properties": {
+        "buggy": {
+          "type": ["string", "null"],
+          "description": "Relative path to the buggy DAML code snippet file, or null."
+        },
+        "fixed": {
+          "type": ["string", "null"],
+          "description": "Relative path to the fixed DAML code snippet file, or null."
+        },
+        "diff": {
+          "type": ["string", "null"],
+          "description": "Relative path to the diff/patch file, or null."
+        }
+      },
+      "description": "Paths to code sample files relative to the case directory."
+    },
+    "oracle": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["assertion_violation", "missing_check", "missing_signatory", "missing_observer", "unrestricted_archive", "state_inconsistency", "spec_nonconformance", "dead_code", "misleading_diagnostic", "unbounded_growth", "redundant_operation"],
+          "description": "Classification of the oracle check that would detect this bug."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what a correct oracle/checker would verify."
+        },
+        "static_signal": {
+          "type": ["string", "null"],
+          "description": "What a static analysis tool could look for (e.g. 'choice controller not in observers', 'no ensure clause checking field > 0')."
+        },
+        "symbolic_property": {
+          "type": ["string", "null"],
+          "description": "Property that symbolic execution could verify (e.g. 'forall t: execute(t) => t >= allocateBefore')."
+        }
+      },
+      "description": "Oracle information for automated detection tool development."
+    },
+    "good_for_static": {
+      "type": "boolean",
+      "description": "Whether this case is a good candidate for static analysis tool evaluation."
+    },
+    "good_for_symbolic": {
+      "type": "boolean",
+      "description": "Whether this case is a good candidate for symbolic execution tool evaluation."
+    },
+    "good_for_benchmark": {
+      "type": "boolean",
+      "description": "Whether this case should be included in the primary benchmark set."
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Free-form tags for additional classification (e.g. ['daml-specific', 'privacy-model', 'CIP-0056'])."
+    },
+    "notes": {
+      "type": ["string", "null"],
+      "description": "Additional notes, caveats, or context."
+    }
+  }
+}

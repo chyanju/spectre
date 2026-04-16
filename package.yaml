@@ -1,0 +1,82 @@
+name:                spectre
+version:             0.1.3.0
+synopsis:            Static analysis tool for DAML smart contracts
+description:         Spectre detects security bugs in DAML smart contracts using pattern-based static analysis
+license:             MIT
+license-file:        LICENSE
+author:              Yanju Chen
+maintainer:          chyanju@gmail.com
+category:            Language
+build-type:          Simple
+
+dependencies:
+  - base >= 4.14 && < 5
+  - text
+  - megaparsec >= 9.0
+  - parser-combinators
+  - containers
+  - aeson
+  - aeson-pretty
+  - bytestring
+  - filepath
+  - directory
+  - optparse-applicative
+  - mtl
+  - vector
+
+ghc-options:
+  - -Wall
+  - -Wcompat
+  - -Wno-name-shadowing
+
+default-extensions:
+  - OverloadedStrings
+  - RecordWildCards
+  - DeriveGeneric
+  - DeriveAnyClass
+  - LambdaCase
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Spectre.Ast
+    - Spectre.Parser
+    - Spectre.Parser.Lexer
+    - Spectre.Parser.Template
+    - Spectre.Parser.Expr
+    - Spectre.Analysis
+    - Spectre.Inspection
+    - Spectre.Rules.All
+    - Spectre.Rules.Authorization
+    - Spectre.Rules.Visibility
+    - Spectre.Rules.Temporal
+    - Spectre.Rules.Invariant
+    - Spectre.Rules.State
+    - Spectre.Rules.Lifecycle
+    - Spectre.Rules.Scalability
+    - Spectre.Rules.CrossTemplate
+    - Spectre.Rules.Upgrade
+    - Spectre.Rules.Integration
+    - Spectre.Report
+    - Spectre.Config
+    - Spectre.Benchmark
+
+executables:
+  spectre:
+    main:           Main.hs
+    source-dirs:    app
+    dependencies:
+      - spectre
+    ghc-options:
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
+
+tests:
+  spectre-test:
+    main:           Spec.hs
+    source-dirs:    test
+    dependencies:
+      - spectre
+      - hspec
+      - hspec-megaparsec

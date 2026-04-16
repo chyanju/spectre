@@ -1,0 +1,46 @@
+--- buggy/OrderWorkflow.daml	2026-04-14 19:21:21.821424059 -0700
++++ fixed/OrderWorkflow.daml	2026-04-14 19:21:27.979312399 -0700
+@@ -1,7 +1,7 @@
+ module Temple.OrderWorkflow where
+ 
+--- BUGGY: When locking all holdings including the remainder, the remainder
+--- is not tracked, leading to inconsistent state after the lock operation.
++-- FIXED: When locking holdings for an order, if the total input exceeds
++-- the order amount, a change holding is created for the remainder.
+ 
+ data OrderStatus = Open | Filled | Cancelled deriving (Eq, Show)
+ 
+@@ -33,17 +33,23 @@
+   where
+     signatory admin, owner
+ 
+-    choice LockForOrder : [ContractId LockedHolding]
++    choice LockForOrder : ([ContractId LockedHolding], Optional (ContractId Holding))
+       controller admin
+       do
+-        -- BUG: Locks all input holdings for the exact order amount,
+-        -- but if total input > order amount, the remainder is lost.
+-        -- No change holding is created for the difference.
+-        forA holdingCids $ \cid -> do
++        -- Compute total input
++        holdings <- forA holdingCids $ \cid -> do
+           h <- fetch cid
+           archive cid
+-          create LockedHolding with
+-            owner = h.owner
+-            admin = h.admin
+-            amount = h.amount
+-            lockHolder = admin
++          pure h
++        let total = foldl (\acc h -> acc + h.amount) 0.0 holdings
++        assertMsg "Insufficient balance" (total >= amount)
++        -- Lock exactly the order amount
++        lockedCid <- create LockedHolding with
++          owner, admin, amount, lockHolder = admin
++        -- FIXED: Return remainder as a new unlocked holding
++        changeCid <- if total > amount
++          then do
++            cid <- create Holding with owner, admin, amount = total - amount
++            pure (Some cid)
++          else pure None
++        pure ([lockedCid], changeCid)
