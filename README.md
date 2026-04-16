@@ -42,10 +42,10 @@ Run Spectre against a sample file from the included benchmark dataset:
 
 ```bash
 # Detect a temporal phase-separation bug in a real audit case
-stack exec spectre -- analyze benchmarks/audit-derived/obsidian/OBS-HAL-06/buggy/AmmPool.daml
+stack exec spectre -- analyze benchmarks/audit-derived/obsidian/OBS-HAL-06/buggy/SettlementDeadline.daml
 
 # Same file, but with JSON output
-stack exec spectre -- analyze --json benchmarks/audit-derived/obsidian/OBS-HAL-06/buggy/AmmPool.daml
+stack exec spectre -- analyze --json benchmarks/audit-derived/obsidian/OBS-HAL-06/buggy/SettlementDeadline.daml
 
 # Detect a missing role-check bug in a synthetic example
 stack exec spectre -- analyze benchmarks/pattern-derived/DOC-AUTH-01/buggy/TokenAdmin.daml
