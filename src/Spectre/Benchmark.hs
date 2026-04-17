@@ -20,7 +20,7 @@ import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString.Lazy as BL
 import System.FilePath ((</>))
 import System.Directory (doesFileExist, listDirectory, doesDirectoryExist)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (catMaybes)
 import Spectre.Ast (Module)
 import Spectre.Parser (parseDaml)
 import Spectre.Analysis (analyze, AnalysisResult(..))
@@ -70,7 +70,7 @@ runBenchmark :: Config -> FilePath -> IO BenchmarkResult
 runBenchmark config benchDir = do
   caseDirs <- findBenchmarkCases benchDir
   results <- mapM (runSingleCase config) caseDirs
-  let validResults = mapMaybe id results
+  let validResults = catMaybes results
       metrics = computeMetrics validResults
   return $ BenchmarkResult validResults metrics
 

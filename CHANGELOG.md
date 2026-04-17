@@ -1,5 +1,39 @@
 # Changelog
 
+## v0.1.5.1 — 2026-04-16
+
+### Fixed
+
+- **SPEC-LIFE-004**: Fixed logic error in the "consuming choice creates different template type" guard. Previously, any choice that also re-created the original template via `create this with {...}` would suppress ALL transmutation findings, even when the choice also created a foreign template type. The guard now correctly only suppresses when a same-type replacement exists.
+- **SPEC-INV-011**: Fixed local `isTimeField` definition that shadowed the richer `Rules.Utils.isTimeField`. The local version only recognized `Time`, missing `RelTime` and `DA.Time.Time`. The rule now uses the shared utility for consistent type detection.
+- **CLI**: Version banner in `--verbose` mode now uses `Paths_spectre` for the version string instead of a hardcoded value that was stale at `v0.1.3.0`.
+- **CLI**: Fixed verbose mode showing `[parsed]` status for files that failed parsing, and parse errors being printed twice in verbose mode.
+- **Parser**: Removed duplicate `"where"` entry in `damlKeywords`.
+- **Benchmark.hs**: Replaced `mapMaybe id` with `catMaybes`.
+
+### Removed
+
+- Unused `vector` package dependency.
+- Dead `"!="` operator from `extractMentionedVars` in SPEC-INV-014 (`!=` is not a valid DAML operator; DAML uses `/=`).
+
+## v0.1.5.0 — 2026-04-16
+
+### Changed
+
+- **SPEC-VIS-001 / SPEC-VIS-002**: Reduced false positives by filtering out synthetic `_Snippet` templates (parser artifact with empty signatory/observer lists). Added `isChoiceParamWithStakeholderCoController` to suppress findings where a choice-parameter controller has at least one stakeholder co-controller — a legitimate multi-controller pattern in Canton where the non-stakeholder party gains visibility via the exercise mechanism.
+- **SPEC-LIFE-004**: `findCreatedTemplateNames` now accepts the enclosing template name and correctly recognizes `create this with {...}` (parsed as `SCreate (TCon "this")`, `ERecordUpd (EVar "this")`, or `EVar "this"`) as self-recreation rather than transmutation to a "different type."
+- **SPEC-DIAG-004**: `collectFromExpr` for `EFieldAccess` now adds the field name to the reference set (previously only the sub-expression was collected). Data-type-derived record accessor names are excluded from the "unused definition" check since they are auto-generated.
+- **SPEC-INV-014**: Generalized `extractZeroGuards` into `extractDenominatorGuards`. Previously used a brittle 24-case pattern match only recognizing literal `0`/`0.0` comparisons. Now recognizes any assertion whose condition mentions the denominator variable in a comparison operator, including named-constant guards (`v > minDenom`) and helper-function guards (`assertPositive v`).
+- **SPEC-INV-008**: Removed overly generic `"value"` from `nameHintIsNumeric` fallback list (would false-positive on any field containing "value"). `findFieldsWithOnlyLowerBoundInEnsure` now uses type-based `isNumericField` from `Rules.Utils` instead of the name-heuristic `isNumericFieldName`, since template fields have type information available.
+- **SPEC-DIAG-005**: Removed `"Get"` from `validationPrefixes` — `Get*` is a common legitimate consuming choice naming pattern (e.g., `GetAndUpdate`).
+
+### Benchmark
+
+- 40 rules, 45 cases evaluated
+- Precision 94%, Recall 77%, F1 85%
+- 34 TP, 21 TN, 2 FP, 10 FN
+- Recall decrease from v0.1.4.0 (84% → 77%) is due to removal of coincidental true-positive matches where LIFE-004 and VIS-001 were providing TPs via incorrect detections (e.g., flagging `create this with` as "different type"). These were false-positive-quality findings counted as TPs by the benchmark system.
+
 ## v0.1.4.0 — 2026-04-16
 
 ### Added

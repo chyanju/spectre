@@ -1,5 +1,5 @@
 name:                spectre
-version:             0.1.5.0
+version:             0.1.5.1
 synopsis:            Static analysis tool for DAML smart contracts
 description:         Spectre detects security bugs in DAML smart contracts using pattern-based static analysis
 license:             MIT
@@ -22,7 +22,6 @@ dependencies:
   - directory
   - optparse-applicative
   - mtl
-  - vector
 
 ghc-options:
   - -Wall

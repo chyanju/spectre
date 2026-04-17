@@ -197,7 +197,7 @@ damlKeywords = Set.fromList
   , "interface", "implements", "requires"
   , "let", "in", "if", "then", "else", "case", "of"
   , "data", "type", "class", "instance", "deriving"
-  , "forall", "where"
+  , "forall"
   , "True", "False"
   , "create", "exercise", "fetch", "archive"
   , "exerciseByKey", "fetchByKey", "lookupByKey"

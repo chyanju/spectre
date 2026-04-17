@@ -264,17 +264,22 @@ templateTransmutation = mkInspection
     | DTemplate tpl <- moduleDecls mod_
     , ch <- tplChoices tpl
     , isConsumingChoice ch
-    , createdTpl <- findCreatedTemplateNames (chBody ch)
+    , let allCreated = findCreatedTemplateNames (tplName tpl) (chBody ch)
+    , createdTpl <- allCreated
     , createdTpl /= tplName tpl
     -- Don't flag if the choice also creates a contract of the same type (replacement)
-    , not (tplName tpl `elem` findCreatedTemplateNames (chBody ch))
+    , tplName tpl `notElem` allCreated
     ]
 
 -- | Extract template names from create statements in a choice body.
-findCreatedTemplateNames :: [Stmt] -> [Text]
-findCreatedTemplateNames = concatMap extractFromStmt
+-- The enclosing template name is passed so that `create this with {...}`
+-- (parsed as ERecordUpd on "this") can be recognized as self-recreation.
+findCreatedTemplateNames :: Text -> [Stmt] -> [Text]
+findCreatedTemplateNames enclosingTpl = concatMap extractFromStmt
   where
-    extractFromStmt (SCreate (TCon tname _) _ _) = [tname]
+    extractFromStmt (SCreate (TCon tname _) _ _)
+      | tname == "this" || tname == "self" = [enclosingTpl]
+      | otherwise = [tname]
     extractFromStmt (SCreate _ _ _) = []
     extractFromStmt (SExpr expr _) = extractFromExpr expr
     extractFromStmt (SBind _ expr _) = extractFromExpr expr
@@ -290,8 +295,12 @@ findCreatedTemplateNames = concatMap extractFromStmt
 
     -- Extract template name from the argument to create:
     --   create Foo with { ... }  → ERecordCon "Foo" ...
+    --   create this with { ... } → ERecordUpd (EVar "this") ... → enclosingTpl
     templateNameFromArg (ERecordCon name _ _) = [name]
+    templateNameFromArg (ERecordUpd (EVar base _) _ _)
+      | base == "this" || base == "self" = [enclosingTpl]
     templateNameFromArg (EVar name _)
+      | name == "this" || name == "self" = [enclosingTpl]
       | not (T.null name) && isUpperFirst name = [name]
     templateNameFromArg (EApp f _ _) = templateNameFromArg f
     templateNameFromArg (EParens e _) = templateNameFromArg e

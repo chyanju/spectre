@@ -31,8 +31,8 @@ Spectre ships 40 inspection rules across 10 modules. Each rule has a unique ID, 
 
 | ID | Name | Severity | Description |
 |----|------|----------|-------------|
-| SPEC-VIS-001 | Controller not listed as observer | Error | A choice controller is not listed as either a signatory or observer of the template. The controller cannot see this contract and therefore cannot exercise this choice. |
-| SPEC-VIS-002 | Choice controller is not a stakeholder (Asymmetric Role) | Warning | A party is defined as a choice controller but is not an observer or signatory of the template, meaning they may not be able to see the contract to exercise the choice. |
+| SPEC-VIS-001 | Controller not listed as observer | Error | A choice controller is not listed as either a signatory or observer of the template. The controller cannot see this contract and therefore cannot exercise this choice. Suppressed for synthetic parser-artifact templates and for choice-parameter controllers with a stakeholder co-controller (a legitimate multi-controller pattern in Canton). |
+| SPEC-VIS-002 | Choice controller is not a stakeholder (Asymmetric Role) | Warning | A party is defined as a choice controller but is not an observer or signatory of the template, meaning they may not be able to see the contract to exercise the choice. Same suppression logic as SPEC-VIS-001. |
 
 ## Temporal (3 rules)
 
@@ -59,7 +59,7 @@ Spectre ships 40 inspection rules across 10 modules. Each rule has a unique ID, 
 | SPEC-INV-011 | Time field not validated in ensure clause | Warning | Template has a Time-typed field but the ensure clause does not reference it, potentially allowing contracts with invalid time relationships. |
 | SPEC-INV-012 | Indirect parameter assignment without guard | Warning | A choice parameter is wrapped in Some and assigned to a field via a let binding, but there is no assertion that the new value differs from the old or that the existing state is None. |
 | SPEC-INV-013 | Uncanonicalized list persisted in created contract | Warning | Data flows to both a processing function and a create statement without canonicalization, creating a potential mismatch between processed and stored state. |
-| SPEC-INV-014 | Unsafe division without zero check | Warning | Division operation using a variable denominator without prior validation against zero. Can lead to transaction aborts (DoS). |
+| SPEC-INV-014 | Unsafe division without zero check | Warning | Division operation using a variable denominator without prior validation. Recognizes any assertion mentioning the denominator in a comparison operator as a guard, including named-constant checks and helper-function calls. |
 
 ## State (2 rules)
 

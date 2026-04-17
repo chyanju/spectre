@@ -1,6 +1,6 @@
 # Benchmark Dataset
 
-Spectre includes a labeled dataset of 38 DAML smart contract security cases for evaluating analysis tool accuracy. Each case contains a buggy (vulnerable) version, a fixed version, structured metadata, and a diff patch.
+Spectre includes a labeled dataset of 45 DAML smart contract security cases for evaluating analysis tool accuracy. Each case contains a buggy (vulnerable) version, a fixed version, structured metadata, and a diff patch.
 
 ## Running the Benchmark
 
@@ -26,16 +26,8 @@ benchmarks/
 │   └── obsidian/        # Obsidian Tradecraft AMM - Halborn (12 cases)
 │       └── OBS-HAL-01/ ... OBS-HAL-12/
 │
-├── pattern-derived/     # Synthetic positive/negative code pairs (9 cases)
-│   ├── DOC-AUTH-01/     # Missing role authorization check
-│   ├── DOC-DIAG-01/     # Deletable audit record
-│   ├── DOC-INTEG-01/    # Missing expected-admin validation
-│   ├── DOC-INV-01/      # Asymmetric validation
-│   ├── DOC-LIFE-01/     # Orphaned contract reference
-│   ├── DOC-SCALE-01/    # Unbounded observer set
-│   ├── DOC-TEMP-01/     # Missing deadline enforcement
-│   ├── DOC-UPGRADE-01/  # Interface view field drop
-│   └── DOC-VIS-01/      # Controller not listed as observer
+├── pattern-derived/     # Synthetic positive/negative code pairs (24 cases)
+│   └── DOC-AUTH-01/ ... DOC-VIS-04/
 │
 └── github-derived/      # Cases from GitHub release notes (5 cases)
     ├── canton-releases/

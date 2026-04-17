@@ -16,6 +16,7 @@ import qualified Data.Map.Strict as Map
 
 import Spectre.Ast
 import Spectre.Inspection
+import Spectre.Rules.Utils (isNumericField, isTimeField)
 
 -- | All invariant rules
 invariantRules :: [Inspection]
@@ -569,7 +570,7 @@ missingUpperBoundValidation = mkInspection
         Nothing
     | DTemplate tpl <- moduleDecls mod_
     , Just ensureExpr <- [tplEnsure tpl]
-    , fieldN <- findFieldsWithOnlyLowerBoundInEnsure (map fieldName (tplFields tpl)) ensureExpr
+    , fieldN <- findFieldsWithOnlyLowerBoundInEnsure (tplFields tpl) ensureExpr
     ]
 
 -- | Find choice parameters that have a lower-bound assert (>= 0) but no upper-bound
@@ -591,7 +592,7 @@ isNumericParam name ch =
   where
     nameHintIsNumeric n =
       let lower = T.toLower n
-      in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit", "value", "balance", "total", "margin", "delta"]
+      in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit", "balance", "total", "margin", "delta"]
 
 paramHasLowerBound :: Text -> [Stmt] -> Bool
 paramHasLowerBound name = any check
@@ -631,19 +632,16 @@ exprHasUpperBound name (EInfix "&&" l r _) = exprHasUpperBound name l || exprHas
 exprHasUpperBound name (EParens e _) = exprHasUpperBound name e
 exprHasUpperBound _ _ = False
 
--- | Find template fields with only lower-bound in ensure clause
-findFieldsWithOnlyLowerBoundInEnsure :: [Text] -> Expr -> [Text]
-findFieldsWithOnlyLowerBoundInEnsure fieldNames ensureExpr =
-  [ f | f <- fieldNames
-  , exprHasLowerBound f ensureExpr
-  , not (exprHasUpperBound f ensureExpr)
-  , isNumericFieldName f
+-- | Find template fields with only lower-bound in ensure clause.
+-- Uses type-based detection (isNumericField) rather than name heuristics,
+-- since template fields have type information available from the parser.
+findFieldsWithOnlyLowerBoundInEnsure :: [Field] -> Expr -> [Text]
+findFieldsWithOnlyLowerBoundInEnsure fields ensureExpr =
+  [ fieldName f | f <- fields
+  , exprHasLowerBound (fieldName f) ensureExpr
+  , not (exprHasUpperBound (fieldName f) ensureExpr)
+  , isNumericField f
   ]
-
-isNumericFieldName :: Text -> Bool
-isNumericFieldName name =
-  let lower = T.toLower name
-  in any (`T.isInfixOf` lower) ["amount", "rate", "fee", "bps", "percent", "count", "num", "qty", "quantity", "price", "limit", "value", "balance", "total", "margin", "delta"]
 
 -- | SPEC-INV-009: Asymmetric validation between sibling functions
 --
@@ -943,12 +941,6 @@ timeFieldNotInEnsure = mkInspection
     , isTimeField tf
     , not (timeFieldReferencedInEnsure (fieldName tf) (tplEnsure tpl))
     ]
-
--- | Check if a field has type Time
-isTimeField :: Field -> Bool
-isTimeField f = case fieldType f of
-  Just (TCon "Time" _) -> True
-  _ -> False
 
 -- | Check if a field name is referenced in the ensure clause expression.
 -- Returns True if the ensure clause references the given field name,
@@ -1408,7 +1400,7 @@ unsafeDivision = mkInspection
 findUnsafeDivisions :: [Stmt] -> [(SrcSpan, Text)]
 findUnsafeDivisions stmts =
   let divs = extractDivisions stmts
-      guards = extractZeroGuards stmts
+      guards = extractDenominatorGuards stmts
   in [(loc, denom) | (loc, denom) <- divs, not (denom `Set.member` guards)]
 
 extractDivisions :: [Stmt] -> [(SrcSpan, Text)]
@@ -1432,34 +1424,35 @@ extractDivisions = concatMap stmtDivs
     exprDivs (EDo stmts _) = extractDivisions stmts
     exprDivs _ = []
 
-extractZeroGuards :: [Stmt] -> Set Text
-extractZeroGuards = Set.fromList . concatMap stmtGuards
+-- | Extract variables that are guarded by any assertion-like statement.
+-- The approach is general: any assertion (assertMsg, assert, require, when/unless)
+-- whose condition expression mentions a variable counts as a guard for that variable.
+-- This covers literal zero checks (v > 0), named-constant checks (v > minDenom),
+-- and helper-function guards (assertPositive v).
+extractDenominatorGuards :: [Stmt] -> Set Text
+extractDenominatorGuards stmts = Set.fromList $ concatMap stmtGuards stmts
   where
-    stmtGuards (SAssert _ e _) = exprGuards e
-    stmtGuards (SExpr e _) = exprGuards e
+    stmtGuards (SAssert _ cond _) = extractMentionedVars cond
+    stmtGuards (SExpr e _) = assertCondVars e
     stmtGuards _ = []
 
-    exprGuards (EInfix ">" (EVar v _) (ENum "0.0" _) _) = [v]
-    exprGuards (EInfix ">" (EVar v _) (ELit "0.0" _) _) = [v]
-    exprGuards (EInfix "<" (ENum "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix "<" (ELit "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix ">=" (EVar v _) (ENum "0.0" _) _) = [v]
-    exprGuards (EInfix ">=" (EVar v _) (ELit "0.0" _) _) = [v]
-    exprGuards (EInfix "<=" (ENum "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix "<=" (ELit "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix ">" (EVar v _) (ENum "0" _) _) = [v]
-    exprGuards (EInfix ">" (EVar v _) (ELit "0" _) _) = [v]
-    exprGuards (EInfix "/=" (EVar v _) (ENum "0" _) _) = [v]
-    exprGuards (EInfix "/=" (EVar v _) (ELit "0" _) _) = [v]
-    exprGuards (EInfix "/=" (EVar v _) (ENum "0.0" _) _) = [v]
-    exprGuards (EInfix "/=" (ENum "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix "/=" (EVar v _) (ELit "0.0" _) _) = [v]
-    exprGuards (EInfix "/=" (ELit "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix "!=" (EVar v _) (ENum "0.0" _) _) = [v]
-    exprGuards (EInfix "!=" (ENum "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EInfix "!=" (EVar v _) (ELit "0.0" _) _) = [v]
-    exprGuards (EInfix "!=" (ELit "0.0" _) (EVar v _) _) = [v]
-    exprGuards (EApp (EApp (EVar "assertMsg" _) _ _) cond _) = exprGuards cond
-    exprGuards (EApp f a _) = exprGuards f ++ exprGuards a
-    exprGuards (EParens e _) = exprGuards e
-    exprGuards _ = []
+    -- Unwrap assertMsg/assert/require to get the condition, then extract vars
+    assertCondVars (EApp (EApp (EVar fn _) _ _) cond _)
+      | fn `elem` ["assertMsg", "require"] = extractMentionedVars cond
+    assertCondVars (EApp (EVar "assert" _) cond _) = extractMentionedVars cond
+    assertCondVars _ = []
+
+    -- Extract all variable names mentioned in a comparison expression.
+    -- We only count variables that appear in comparison operators (>, <, >=, <=, /=, ==)
+    -- to avoid over-broadly suppressing from unrelated assertions.
+    extractMentionedVars (EInfix op (EVar v _) _ _)
+      | op `elem` [">", "<", ">=", "<=", "/=", "=="] = [v]
+    extractMentionedVars (EInfix op _ (EVar v _) _)
+      | op `elem` [">", "<", ">=", "<=", "/=", "=="] = [v]
+    extractMentionedVars (EInfix "&&" l r _) = extractMentionedVars l ++ extractMentionedVars r
+    extractMentionedVars (EInfix "||" l r _) = extractMentionedVars l ++ extractMentionedVars r
+    extractMentionedVars (EApp (EVar _ _) (EVar v _) _) = [v]  -- function call like: assertPositive v
+    extractMentionedVars (EParens e _) = extractMentionedVars e
+    extractMentionedVars (EApp (EApp (EVar "not" _) inner _) _ _) = extractMentionedVars inner
+    extractMentionedVars (EApp (EVar "not" _) inner _) = extractMentionedVars inner
+    extractMentionedVars _ = []

@@ -39,11 +39,13 @@ controllerNotObserver = mkInspection
         (Just (tplName tpl))
         (Just (chName ch))
     | DTemplate tpl <- moduleDecls mod_
+    , tplName tpl /= "_Snippet"  -- skip synthetic snippet templates (parser artifact with empty stakeholders)
     , ch <- tplChoices tpl
     , ctrl <- chController ch
     , not (partyInList ctrl (tplSignatory tpl))
     , not (partyInList ctrl (tplObserver tpl))
     , not (isThisOrSelf ctrl)  -- skip if controller is 'this' (refers to template party)
+    , not (isChoiceParamWithStakeholderCoController ctrl ch (tplSignatory tpl ++ tplObserver tpl))
     ]
 
 -- Helpers
@@ -100,10 +102,12 @@ missingSymmetricObserver = mkInspection
         (Just (tplName tpl))
         (Just (chName ch))
     | DTemplate tpl <- moduleDecls mod_
+    , tplName tpl /= "_Snippet"  -- skip synthetic snippet templates (parser artifact with empty stakeholders)
     , ch <- tplChoices tpl
     , ctrl <- chController ch
     , not (isThisOrSelf ctrl)
     , not (partyInStakeholders ctrl (tplSignatory tpl ++ tplObserver tpl))
+    , not (isChoiceParamWithStakeholderCoController ctrl ch (tplSignatory tpl ++ tplObserver tpl))
     ]
 
 -- | Deep check if a party expression is present in the stakeholders list
@@ -119,3 +123,21 @@ flattenPartyExprs = concatMap go
   where
     go (PEList ps _) = flattenPartyExprs ps
     go p = [p]
+
+-- | Check if a controller party expression refers to a choice parameter
+-- AND at least one other co-controller is already a template stakeholder.
+-- In Daml/Canton, when a choice has multiple controllers (e.g., `controller actor, operator`)
+-- and at least one co-controller is a stakeholder, the non-stakeholder controller
+-- can exercise the choice because the stakeholder provides the necessary visibility
+-- context (they must co-sign the exercise). A choice-param controller that is the
+-- SOLE controller with no stakeholder co-controller is still a genuine visibility concern.
+isChoiceParamWithStakeholderCoController :: PartyExpr -> Choice -> [PartyExpr] -> Bool
+isChoiceParamWithStakeholderCoController (PEVar name _) ch stakeholders =
+  name `elem` map fieldName (chParams ch)
+  && any isStakeholderCoController (chController ch)
+  where
+    isStakeholderCoController ctrl =
+      not (isSameVar ctrl) && partyInList ctrl stakeholders
+    isSameVar (PEVar n _) = n == name
+    isSameVar _ = False
+isChoiceParamWithStakeholderCoController _ _ _ = False

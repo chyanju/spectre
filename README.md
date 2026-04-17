@@ -15,15 +15,15 @@ Evaluated against a 45-case labeled dataset of real audit findings, synthetic pa
 
 | Metric | Value |
 |--------|-------|
-| Precision | 95% |
-| Recall | 84% |
-| F1 Score | 89% |
-| True Positives | 37 |
-| True Negatives | 18 |
+| Precision | 94% |
+| Recall | 77% |
+| F1 Score | 85% |
+| True Positives | 34 |
+| True Negatives | 21 |
 | False Positives | 2 |
-| False Negatives | 7 |
+| False Negatives | 10 |
 
-The false negatives involve patterns requiring data-flow analysis or cross-module reasoning that is beyond the scope of syntactic pattern matching.
+The false negatives involve patterns requiring data-flow analysis, cross-module reasoning, or domain-specific detection beyond the scope of syntactic pattern matching.
 
 ## Requirements
 

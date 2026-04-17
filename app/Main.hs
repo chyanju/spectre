@@ -13,8 +13,11 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Set as Set
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson.Encode.Pretty (encodePretty)
+import Data.Version (showVersion)
 import Options.Applicative
 import Text.Megaparsec.Error (errorBundlePretty)
+
+import Paths_spectre (version)
 
 import Spectre.Parser (parseDamlFile)
 import qualified Spectre.Parser (ParseError)
@@ -135,7 +138,7 @@ runAnalyze AnalyzeOpts{..} = do
                      ) allInspections
   if analyzeVerbose
     then do
-      hPutStrLn stderr $ "Spectre v0.1.3.0 — analyzing " ++ show (length validFiles) ++ " file(s) with " ++ show (length enabledRules) ++ " rules"
+      hPutStrLn stderr $ "Spectre v" ++ showVersion version ++ " — analyzing " ++ show (length validFiles) ++ " file(s) with " ++ show (length enabledRules) ++ " rules"
       mapM_ (\i -> hPutStrLn stderr $ "  [enabled] " ++ T.unpack (unInspectionId (inspId i))) enabledRules
     else return ()
 
@@ -145,12 +148,17 @@ runAnalyze AnalyzeOpts{..} = do
   -- B2: Verbose — show per-file parse results
   if analyzeVerbose
     then do
-      mapM_ (\(f, _) -> hPutStrLn stderr $ "  [parsed]  " ++ f) (zip validFiles modules)
+      mapM_ (\(f, r) -> case r of
+        Right _ -> hPutStrLn stderr $ "  [parsed]  " ++ f
+        Left _  -> return ()
+        ) (zip validFiles modules)
       mapM_ (\(f, e) -> hPutStrLn stderr $ "  [FAIL]    " ++ f ++ ": " ++ T.unpack e) errors
     else return ()
 
-  -- B5: Parse errors to stderr
-  mapM_ (\(f, e) -> hPutStrLn stderr $ f ++ ": " ++ T.unpack e) errors
+  -- B5: Parse errors to stderr (only when not verbose, to avoid duplicates)
+  if not analyzeVerbose
+    then mapM_ (\(f, e) -> hPutStrLn stderr $ f ++ ": " ++ T.unpack e) errors
+    else return ()
 
   let result = (analyze config parsed)
         { arParseErrors = errors }

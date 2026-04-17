@@ -293,8 +293,12 @@ deadCodeUnusedDefinition = mkInspection
         funcNames = Set.fromList [name | DFunction name _ _ _ <- decls]
         -- Collect all names referenced in the bodies of all decls
         allRefs = collectAllReferences decls
-        -- Find unused: defined but never referenced
-        unused = Set.difference funcNames allRefs
+        -- Collect field names from data type declarations — these are
+        -- auto-generated record accessors and should not be flagged.
+        dataFieldNames = Set.fromList
+          [fieldName f | DDataType _ fields _ <- decls, f <- fields]
+        -- Find unused: defined but never referenced, excluding data-derived accessors
+        unused = Set.difference funcNames (Set.union allRefs dataFieldNames)
     in [ mkFinding (InspectionId "SPEC-DIAG-004") Info loc
           ("Unused top-level definition '" <> name
            <> "' — not referenced by any other declaration in this module")
@@ -331,7 +335,7 @@ collectAllReferences decls = Set.fromList $ concatMap collectFromDecl decls
     collectFromExpr (EVar name _) = [name]
     collectFromExpr (EApp f a _) = collectFromExpr f ++ collectFromExpr a
     collectFromExpr (EInfix _ l r _) = collectFromExpr l ++ collectFromExpr r
-    collectFromExpr (EFieldAccess e _ _) = collectFromExpr e
+    collectFromExpr (EFieldAccess e f _) = f : collectFromExpr e
     collectFromExpr (EParens e _) = collectFromExpr e
     collectFromExpr (EIf c t e _) = collectFromExpr c ++ collectFromExpr t ++ collectFromExpr e
     collectFromExpr (ELet binds body _) = concatMap (collectFromExpr . bindExpr) binds ++ collectFromExpr body
@@ -383,7 +387,7 @@ hasValidationPrefix name =
   where
     validationPrefixes =
       [ "Validate", "Check", "Verify", "Query"
-      , "Get", "Is", "Lookup", "Read", "Inspect"
+      , "Is", "Lookup", "Read", "Inspect"
       ]
 
 -- | Does the statement list contain any state-mutating operations?
